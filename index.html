@@ -126,10 +126,10 @@
         COUNTER: { x: 780, y: 550, w: 350, h: 80 },
         TRASH: { x: 550, y: 250, w: 80, h: 80 },
         SHELVES: [
-          { x: 180, y: 220, item: "carrot", name: "МОРКОВИ" },
-          { x: 340, y: 220, item: "honey", name: "МЕД" },
-          { x: 180, y: 420, item: "fish", name: "РИБА" },
-          { x: 340, y: 420, item: "acorn", name: "ЖЕЛЪДИ" },
+          { x: 215, y: 220, item: "carrot", name: "МОРКОВИ" },
+          { x: 375, y: 220, item: "honey", name: "МЕД" },
+          { x: 215, y: 420, item: "fish", name: "РИБА" },
+          { x: 375, y: 420, item: "acorn", name: "ЖЕЛЪДИ" },
         ],
         DOOR: { x: 640, y: 150 },
       };
@@ -150,7 +150,7 @@
           pickupX: 120,
           pickupY: 140,
           target: { cx: 300, cy: 180, hw: 80, hh: 80 },
-          hint: "Сложи балона НАД Мечо 🐻",
+          hint: "🎈 Сложи балона НАД мечката!",
         },
         {
           id: 1,
@@ -159,7 +159,7 @@
           pickupX: 250,
           pickupY: 140,
           target: { cx: 640, cy: 120, hw: 140, hh: 60 },
-          hint: "Сложи гирлянда МЕЖДУ дърветата 🌲🌲",
+          hint: "🌲 Сложи гирлянда МЕЖДУ дърветата!",
         },
         {
           id: 2,
@@ -168,7 +168,7 @@
           pickupX: 380,
           pickupY: 140,
           target: { cx: 980, cy: 220, hw: 80, hh: 80 },
-          hint: "Сложи фенера ДО Лисицата 🦊",
+          hint: "🦊 Сложи фенера ДО лисицата!",
         },
         {
           id: 3,
@@ -177,7 +177,7 @@
           pickupX: 510,
           pickupY: 140,
           target: { cx: 500, cy: 520, hw: 100, hh: 80 },
-          hint: "Сложи цветето ПОД Зайчето 🐰",
+          hint: "🐰 Сложи цветето ПОД зайчето!",
         },
         {
           id: 4,
@@ -186,7 +186,7 @@
           pickupX: 640,
           pickupY: 140,
           target: { cx: 640, cy: 260, hw: 100, hh: 80 },
-          hint: "Сложи звездата В СРЕДАТА ✨",
+          hint: "⭐ Сложи звездата В СРЕДАТА!",
         },
       ];
 
@@ -353,9 +353,11 @@
           const btnTxt = this.add
             .text(btnX, btnY, "▶  ПРОДЪЛЖИ КЪМ НИВО 2", {
               fontFamily: "Arial",
-              fontSize: "24px",
+              fontSize: "22px",
               color: "#c8e6c9",
               fontStyle: "bold",
+              wordWrap: { width: 400 },
+              align: "center",
             })
             .setOrigin(0.5, 0.5);
 
@@ -719,8 +721,8 @@
               // Балончето се създава веднъж при пристигане на гишето
               // Иконата използва оригиналния зареден спрайт (carrot, fish, honey, acorn)
               this.bubbleText = this.scene.add
-                .text(this.x + 25, this.y - 145, this.quantity.toString(), {
-                  fontSize: "36px",
+                .text(this.x + 38, this.y - 148, this.quantity.toString(), {
+                  fontSize: "38px",
                   color: "#111",
                   fontStyle: "bold",
                 })
@@ -728,8 +730,8 @@
                 .setDepth(16);
 
               this.bubbleIcon = this.scene.add
-                .image(this.x - 25, this.y - 145, this.targetItem)
-                .setScale(2.2)
+                .image(this.x - 28, this.y - 148, this.targetItem)
+                .setScale(2.8)
                 .setDepth(16);
             } else {
               const step = 150 * (delta / 1000);
@@ -789,10 +791,10 @@
 
         drawBubble(scene) {
           if (this.state !== "waiting") return;
-          const bx = this.x - 80,
-            by = this.y - 200;
-          const bw = 160,
-            bh = 110;
+          const bx = this.x - 90,
+            by = this.y - 210;
+          const bw = 180,
+            bh = 120;
 
           // Контур на балончето
           scene.bubbleGfx.fillStyle(0xffffff, 0.93);
@@ -1240,13 +1242,13 @@
           this.add.image(0, 0, "outside_day").setOrigin(0).setDisplaySize(W, H);
 
           // Преместени животни максимално надолу, за да стъпят на земята в дневния бекграунд
-          const groundY = H - 90;
+          const groundY = H - 52;
           this.add
             .sprite(W / 2 - 310, groundY, "sprite_bear")
             .setScale(3.5)
             .setFrame(4);
           this.add
-            .sprite(W / 2 - 200, groundY + 10, "sprite_rabbit")
+            .sprite(W / 2 - 200, groundY, "sprite_rabbit")
             .setScale(3.5)
             .setFrame(4);
           this.add
@@ -1254,7 +1256,7 @@
             .setScale(3.5)
             .setFrame(4);
           this.add
-            .sprite(W / 2 + 290, groundY + 10, "sprite_squirrel")
+            .sprite(W / 2 + 290, groundY, "sprite_squirrel")
             .setScale(3.5)
             .setFrame(4);
 
@@ -1295,9 +1297,11 @@
           const btnTxt = this.add
             .text(btnX, btnY, "🎊  ПРОДЪЛЖИ КЪМ НИВО 3", {
               fontFamily: "Arial",
-              fontSize: "24px",
+              fontSize: "22px",
               color: "#f3e5f5",
               fontStyle: "bold",
+              wordWrap: { width: 400 },
+              align: "center",
             })
             .setOrigin(0.5, 0.5);
 
@@ -1390,11 +1394,11 @@
           this.hintText = this.add
             .text(W / 2, 66, "", {
               fontFamily: "Arial",
-              fontSize: "22px",
-              color: "#ffe0b2",
+              fontSize: "24px",
+              color: "#fff9c4",
               fontStyle: "bold",
               stroke: "#1a0a2e",
-              strokeThickness: 4,
+              strokeThickness: 5,
             })
             .setOrigin(0.5, 0)
             .setDepth(25);
@@ -1580,29 +1584,40 @@
             }
           });
 
-          // СВЕТЕЩ АКЦЕНТ: Визуален ориентир за текущата целева зона
+          // СВЕТЕЩИ ЗОНИ: Показва всички целеви зони постоянно
+          this.tasks.forEach((task) => {
+            if (task.done) return;
+            const t = task.target;
+            const isActive =
+              !this.tasks.find((tt) => !tt.done) ||
+              this.tasks.find((tt) => !tt.done).id === task.id;
+            const isCarryingCorrect = isActive && this.carrying && this.carrying.id === task.id;
+
+            const strokeColor = isCarryingCorrect ? 0x00ff00 : isActive ? 0xffe082 : 0xaaaaaa;
+            const fillColor = isCarryingCorrect ? 0x00ff00 : isActive ? 0xffe082 : 0xcccccc;
+            const alphaPulse = isCarryingCorrect
+              ? 0.28 + Math.sin(this.tempTimer * 0.005) * 0.12
+              : isActive
+                ? 0.13 + Math.sin(this.tempTimer * 0.004) * 0.05
+                : 0.05;
+            const strokeAlpha = isCarryingCorrect ? 0.9 : isActive ? 0.7 : 0.25;
+
+            this.mainGfx.lineStyle(isActive ? 4 : 2, strokeColor, strokeAlpha);
+            this.mainGfx.strokeRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
+            this.mainGfx.fillStyle(fillColor, alphaPulse);
+            this.mainGfx.fillRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
+          });
+
+          // Оновява текста за активната зона
           const activeTask = this.tasks.find((t) => !t.done);
           if (activeTask) {
             const t = activeTask.target;
             const isCarryingCorrect = this.carrying && this.carrying.id === activeTask.id;
-
-            // Променя цвета си на зелен при правилно носена вещ
-            const strokeColor = isCarryingCorrect ? 0x00ff00 : 0xffffff;
-            const fillColor = isCarryingCorrect ? 0x00ff00 : 0xffffff;
-            const alphaPulse = isCarryingCorrect
-              ? 0.22 + Math.sin(this.tempTimer * 0.005) * 0.1
-              : 0.08;
-
-            this.mainGfx.lineStyle(3, strokeColor, isCarryingCorrect ? 0.8 : 0.4);
-            this.mainGfx.strokeRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
-            this.mainGfx.fillStyle(fillColor, alphaPulse);
-            this.mainGfx.fillRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
-
             if (!this.zoneHintText) {
               this.zoneHintText = this.add
-                .text(t.cx, t.cy, "МЯСТО ЗА УКРАСА", {
+                .text(t.cx, t.cy, "📍 ТУК", {
                   fontFamily: "Arial",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   color: "#ffffff",
                   fontStyle: "bold",
                   stroke: "#000000",
@@ -1612,8 +1627,8 @@
                 .setDepth(11);
             } else {
               this.zoneHintText.setPosition(t.cx, t.cy).setVisible(true);
-              this.zoneHintText.setColor(isCarryingCorrect ? "#00ff00" : "#ffffff");
-              this.zoneHintText.setText(isCarryingCorrect ? "ПОСТАВИ ТУК!" : "МЯСТО ЗА УКРАСА");
+              this.zoneHintText.setColor(isCarryingCorrect ? "#00ff00" : "#ffe082");
+              this.zoneHintText.setText(isCarryingCorrect ? "✅ ПОСТАВИ ТУК!" : "📍 ТУК");
             }
           } else {
             if (this.zoneHintText) this.zoneHintText.setVisible(false);
