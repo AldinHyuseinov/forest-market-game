@@ -1,0 +1,1697 @@
+<!doctype html>
+<html lang="bg">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Горски Магазин</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #0d1a0a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        font-family: "Arial", sans-serif;
+        overflow: hidden;
+      }
+      #game-title {
+        color: #c8e6c9;
+        font-size: 26px;
+        font-weight: bold;
+        text-shadow: 2px 2px 0 #1b5e20;
+        margin-bottom: 4px;
+        letter-spacing: 2px;
+      }
+      #game-subtitle {
+        color: #a5d6a7;
+        font-size: 13px;
+        margin-bottom: 12px;
+        letter-spacing: 1px;
+      }
+      #game-container {
+        border: 4px solid #2e7d32;
+        box-shadow: 0 0 40px rgba(100, 200, 80, 0.35);
+        position: relative;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+      #footer {
+        color: #81c784;
+        font-size: 13px;
+        margin-top: 12px;
+        letter-spacing: 1px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-title">🌲 ГОРСКИ МАГАЗИН 🐻</div>
+    <div id="game-subtitle">Трета група · Математика</div>
+    <div id="game-container">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+    <div id="footer">СТРЕЛКИ или WASD = Движение &nbsp;|&nbsp; SPACE = Действие</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+    <script>
+      const W = 1280,
+        H = 680;
+
+      // ============================================================
+      // НАСТРОЙКИ НИВО 1
+      // ============================================================
+      const L1 = { SPEED: 260, MAX_ERRORS: 3 };
+      const SHAPE_NAMES = {
+        circle: "кръг",
+        square: "квадрат",
+        triangle: "триъгълник",
+        rectangle: "правоъгълник",
+        diamond: "ромб",
+      };
+      const SHAPE_COLORS = {
+        circle: 0x64b5f6,
+        square: 0xffb74d,
+        triangle: 0x81c784,
+        rectangle: 0xf06292,
+        diamond: 0xce93d8,
+      };
+
+      const ANIMAL_NEEDS = [
+        { animal: "bear", x: 200, y: 600, shape: "circle", label: "Мечо" },
+        { animal: "rabbit", x: 430, y: 610, shape: "square", label: "Зайо" },
+        { animal: "fox", x: 680, y: 600, shape: "triangle", label: "Лисица" },
+        { animal: "squirrel", x: 920, y: 610, shape: "rectangle", label: "Катерица" },
+        { animal: "wolf", x: 1110, y: 600, shape: "diamond", label: "Вълче" },
+      ];
+
+      const SHAPE_POOL = [
+        { type: "circle", x: 80, y: 630 },
+        { type: "triangle", x: 310, y: 630 },
+        { type: "square", x: 550, y: 630 },
+        { type: "diamond", x: 800, y: 630 },
+        { type: "rectangle", x: 1010, y: 630 },
+        { type: "circle", x: 1210, y: 630 },
+        { type: "square", x: 260, y: 645 },
+        { type: "triangle", x: 740, y: 645 },
+      ];
+
+      // ============================================================
+      // НАСТРОЙКИ НИВО 2
+      // ============================================================
+      const L2 = {
+        PLAYER_SPEED: 280,
+        CUSTOMER_PATIENCE: 50000,
+        CUSTOMER_SPAWN_INTERVAL: 6000,
+        MAX_CUSTOMERS: 3,
+        MAX_CARRY: 10,
+        MIN_ORDER: 1,
+        MAX_ORDER: 10,
+        TARGET_SCORE: 10,
+        MAX_ERRORS: 3,
+      };
+      const ANIMALS = ["rabbit", "bear", "fox", "squirrel"];
+      const ITEMS = ["carrot", "honey", "fish", "acorn"];
+      const ANIMAL_PREFS = { rabbit: "carrot", bear: "honey", fox: "fish", squirrel: "acorn" };
+      const ITEM_NAMES = { carrot: "моркови", honey: "меда", fish: "риби", acorn: "желъди" };
+
+      // Преместени рафтове (SHELVES) малко по-вдясно за по-добра видимост
+      const ZONES = {
+        COUNTER: { x: 780, y: 550, w: 350, h: 80 },
+        TRASH: { x: 550, y: 250, w: 80, h: 80 },
+        SHELVES: [
+          { x: 180, y: 220, item: "carrot", name: "МОРКОВИ" },
+          { x: 340, y: 220, item: "honey", name: "МЕД" },
+          { x: 180, y: 420, item: "fish", name: "РИБА" },
+          { x: 340, y: 420, item: "acorn", name: "ЖЕЛЪДИ" },
+        ],
+        DOOR: { x: 640, y: 150 },
+      };
+
+      // ============================================================
+      // НАСТРОЙКИ НИВО 3 (Опростени подсказки за децата)
+      // ============================================================
+      const L3 = {
+        BIRD_SPEED: 260,
+        MAX_ERRORS: 3,
+      };
+
+      const SPATIAL_TASKS = [
+        {
+          id: 0,
+          decoration: "balloon",
+          decorName: "Балон",
+          pickupX: 120,
+          pickupY: 140,
+          target: { cx: 300, cy: 180, hw: 80, hh: 80 },
+          hint: "Сложи балона НАД Мечо 🐻",
+        },
+        {
+          id: 1,
+          decoration: "garland",
+          decorName: "Гирлянд",
+          pickupX: 250,
+          pickupY: 140,
+          target: { cx: 640, cy: 120, hw: 140, hh: 60 },
+          hint: "Сложи гирлянда МЕЖДУ дърветата 🌲🌲",
+        },
+        {
+          id: 2,
+          decoration: "lantern",
+          decorName: "Фенер",
+          pickupX: 380,
+          pickupY: 140,
+          target: { cx: 980, cy: 220, hw: 80, hh: 80 },
+          hint: "Сложи фенера ДО Лисицата 🦊",
+        },
+        {
+          id: 3,
+          decoration: "flower",
+          decorName: "Цвете",
+          pickupX: 510,
+          pickupY: 140,
+          target: { cx: 500, cy: 520, hw: 100, hh: 80 },
+          hint: "Сложи цветето ПОД Зайчето 🐰",
+        },
+        {
+          id: 4,
+          decoration: "star",
+          decorName: "Звезда",
+          pickupX: 640,
+          pickupY: 140,
+          target: { cx: 640, cy: 260, hw: 100, hh: 80 },
+          hint: "Сложи звездата В СРЕДАТА ✨",
+        },
+      ];
+
+      // ============================================================
+      // СИСТЕМНИ ФУНКЦИИ ЗА ЗАРЕЖДАНЕ И ДВИЖЕНИЕ
+      // ============================================================
+      function preloadCommonAssets(scene) {
+        scene.load.image("outside_night", "assets/outside_night.png");
+        scene.load.image("outside_night_cabin", "assets/outside_night_cabin.png");
+        scene.load.image("shop_interior", "assets/shop_interior.jpg");
+        scene.load.image("outside_day", "assets/outside_day.png");
+
+        scene.load.image("carrot", "assets/item_carrot.png");
+        scene.load.image("fish", "assets/item_fish.png");
+        scene.load.image("honey", "assets/item_honey.png");
+        scene.load.image("acorn", "assets/item_acorn.png");
+
+        const frameSize = { frameWidth: 32, frameHeight: 32 };
+        scene.load.spritesheet("sprite_bird", "assets/sprite_bird.png", frameSize);
+        scene.load.spritesheet("sprite_wolf", "assets/sprite_wolf.png", frameSize);
+        scene.load.spritesheet("sprite_squirrel", "assets/sprite_squirrel.png", frameSize);
+        scene.load.spritesheet("sprite_bear", "assets/sprite_bear.png", frameSize);
+        scene.load.spritesheet("sprite_owl", "assets/sprite_owl.png", frameSize);
+        scene.load.spritesheet("sprite_fox", "assets/sprite_fox.png", frameSize);
+        scene.load.spritesheet("sprite_rabbit", "assets/sprite_rabbit.png", frameSize);
+      }
+
+      function updateCharacterDirection(sprite, dx, dy, isMoving, tempTimer) {
+        if (isMoving) {
+          let frame = sprite.frame.name;
+
+          if (dx < 0 && dy > 0) frame = 6;
+          else if (dx === 0 && dy > 0) frame = 4;
+          else if (dx > 0 && dy > 0) frame = 7;
+          else if (dx < 0 && dy === 0) frame = 3;
+          else if (dx > 0 && dy === 0) frame = 5;
+          else if (dx < 0 && dy < 0) frame = 0;
+          else if (dx === 0 && dy < 0) frame = 1;
+          else if (dx > 0 && dy < 0) frame = 2;
+
+          sprite.setFrame(frame);
+
+          const bob = Math.sin(tempTimer * 0.015) * 0.1;
+          sprite.setScale(3.5, 3.5 + bob);
+        } else {
+          sprite.setScale(3.5, 3.5);
+        }
+      }
+
+      const Draw = {
+        shape(gfx, type, x, y, s, col, alpha = 1) {
+          gfx.fillStyle(col, alpha);
+          gfx.lineStyle(3, 0x000000, alpha * 0.5);
+          switch (type) {
+            case "circle":
+              gfx.fillCircle(x, y, s * 1.1);
+              gfx.strokeCircle(x, y, s * 1.1);
+              break;
+            case "square":
+              gfx.fillRect(x - s, y - s, s * 2, s * 2);
+              gfx.strokeRect(x - s, y - s, s * 2, s * 2);
+              break;
+            case "triangle": {
+              const pts = [
+                { x, y: y - s * 1.3 },
+                { x: x - s * 1.1, y: y + s * 0.9 },
+                { x: x + s * 1.1, y: y + s * 0.9 },
+              ];
+              gfx.fillPoints(pts, true);
+              gfx.strokePoints(pts, true);
+              break;
+            }
+            case "rectangle":
+              gfx.fillRect(x - s * 1.5, y - s * 0.8, s * 3, s * 1.6);
+              gfx.strokeRect(x - s * 1.5, y - s * 0.8, s * 3, s * 1.6);
+              break;
+            case "diamond": {
+              const pts = [
+                { x, y: y - s * 1.3 },
+                { x: x + s, y },
+                { x, y: y + s * 1.3 },
+                { x: x - s, y },
+              ];
+              gfx.fillPoints(pts, true);
+              gfx.strokePoints(pts, true);
+              break;
+            }
+          }
+        },
+      };
+
+      // ============================================================
+      // TRANSITION SCENE: LEVEL 1 -> LEVEL 2
+      // ============================================================
+      class TransitionScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "TransitionScene" });
+        }
+        preload() {
+          preloadCommonAssets(this);
+        }
+        create() {
+          document.getElementById("game-title").textContent = "🌲 ГОРСКИ МАГАЗИН 🐻";
+          document.getElementById("game-subtitle").textContent = "Трета група · Математика";
+
+          this.add.image(0, 0, "outside_night_cabin").setOrigin(0).setDisplaySize(W, H);
+
+          const groundY = H - 80;
+          this.add
+            .sprite(W / 2 - 280, groundY, "sprite_bear")
+            .setScale(3.5)
+            .setFrame(4);
+          this.add
+            .sprite(W / 2 - 160, groundY, "sprite_rabbit")
+            .setScale(3.5)
+            .setFrame(4);
+          this.add
+            .sprite(W / 2 + 160, groundY, "sprite_fox")
+            .setScale(3.5)
+            .setFrame(4);
+          this.add
+            .sprite(W / 2 + 280, groundY, "sprite_squirrel")
+            .setScale(3.5)
+            .setFrame(4);
+
+          this.add
+            .text(W / 2, 70, "🎉 НИВО 1 ЗАВЪРШЕНО! 🎉", {
+              fontFamily: "Arial",
+              fontSize: "44px",
+              color: "#c8e6c9",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 6,
+              wordWrap: { width: W - 40 },
+            })
+            .setOrigin(0.5, 0);
+
+          this.add
+            .text(W / 2, 130, "Магазинът е построен!\nЖивотните са готови да го отворят!", {
+              fontFamily: "Arial",
+              fontSize: "22px",
+              color: "#a5d6a7",
+              stroke: "#000",
+              strokeThickness: 3,
+              align: "center",
+              wordWrap: { width: W - 80 },
+            })
+            .setOrigin(0.5, 0);
+
+          const btnBg = this.add.graphics();
+          const btnX = W / 2,
+            btnY = H - 110;
+
+          // Разширен бутон (420px) за сигурно събиране на текста
+          const drawBtn = (hover) => {
+            btnBg.clear();
+            btnBg.fillStyle(hover ? 0x2e7d32 : 0x1b5e20, 1);
+            btnBg.fillRoundedRect(btnX - 210, btnY - 32, 420, 64, 16);
+            btnBg.lineStyle(3, hover ? 0x81c784 : 0x4caf50, 1);
+            btnBg.strokeRoundedRect(btnX - 210, btnY - 32, 420, 64, 16);
+          };
+          drawBtn(false);
+
+          const btnTxt = this.add
+            .text(btnX, btnY, "▶  ПРОДЪЛЖИ КЪМ НИВО 2", {
+              fontFamily: "Arial",
+              fontSize: "24px",
+              color: "#c8e6c9",
+              fontStyle: "bold",
+            })
+            .setOrigin(0.5, 0.5);
+
+          const zone = this.add.zone(btnX, btnY, 420, 64).setInteractive();
+          zone.on("pointerover", () => {
+            drawBtn(true);
+            btnTxt.setColor("#ffffff");
+          });
+          zone.on("pointerout", () => {
+            drawBtn(false);
+            btnTxt.setColor("#c8e6c9");
+          });
+          zone.on("pointerdown", () => this.scene.start("ShopScene"));
+
+          this.input.keyboard.once("keydown-SPACE", () => this.scene.start("ShopScene"));
+          this.input.keyboard.once("keydown-ENTER", () => this.scene.start("ShopScene"));
+
+          this.cameras.main.fadeIn(600);
+        }
+      }
+
+      // ============================================================
+      // LEVEL 1: FOREST SCENE
+      // ============================================================
+      class ForestScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "ForestScene" });
+        }
+        preload() {
+          preloadCommonAssets(this);
+        }
+        create() {
+          document.getElementById("game-title").textContent = "🦉 БУХАЛЪТ СТРОИТЕЛ 🌲";
+          document.getElementById("game-subtitle").textContent =
+            "Трета група · Геометрични фигури · Помогни да построят магазина!";
+
+          this.gameState = "PLAYING";
+          this.errors = 0;
+          this.delivered = 0;
+          this.totalNeeded = ANIMAL_NEEDS.length;
+          this.carrying = null;
+          this.tempTimer = 0;
+
+          this.add.image(0, 0, "outside_night").setOrigin(0).setDisplaySize(W, H);
+
+          this.playerSprite = this.add.sprite(640, 280, "sprite_owl").setScale(3.5).setDepth(15);
+          this.shapes = SHAPE_POOL.map((s, i) => ({ ...s, id: i, picked: false }));
+          this.animals = ANIMAL_NEEDS.map((a) => ({ ...a, done: false }));
+
+          this.animals.forEach((a) => {
+            a.sprite = this.add
+              .sprite(a.x, a.y, "sprite_" + a.animal)
+              .setScale(3.5)
+              .setDepth(10);
+            a.sprite.setFrame(4);
+          });
+
+          this.mainGfx = this.add.graphics().setDepth(12);
+          this.cursors = this.input.keyboard.createCursorKeys();
+          this.wasd = this.input.keyboard.addKeys("W,A,S,D");
+
+          this.input.keyboard.on("keydown-SPACE", () => this.tryAction());
+
+          this.add.rectangle(0, 0, W, 58, 0x0a1a07).setOrigin(0, 0).setDepth(24);
+          this.scoreText = this.add
+            .text(20, 14, `🌲 Доставени: 0 / ${this.totalNeeded}`, {
+              fontFamily: "Arial",
+              fontSize: "26px",
+              color: "#c8e6c9",
+              fontStyle: "bold",
+            })
+            .setDepth(25);
+          this.errorText = this.add
+            .text(W - 20, 14, `❌ Грешки: 0 / ${L1.MAX_ERRORS}`, {
+              fontFamily: "Arial",
+              fontSize: "26px",
+              color: "#ff8a80",
+              fontStyle: "bold",
+            })
+            .setOrigin(1, 0)
+            .setDepth(25);
+          this.carryText = this.add
+            .text(W / 2, 66, "Намери правилната фигура и я занеси на животното!", {
+              fontFamily: "Arial",
+              fontSize: "19px",
+              color: "#FFD700",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 4,
+            })
+            .setOrigin(0.5, 0)
+            .setDepth(25);
+
+          this.carriedItemIcon = this.add.graphics().setDepth(16);
+
+          this._buildAnimalBubbles();
+          this.cameras.main.fadeIn(500);
+        }
+
+        _buildAnimalBubbles() {
+          this.bubbleGfxArr = [];
+          this.animals.forEach((a) => {
+            const bx = a.x - 55,
+              by = a.y - 110;
+            const bg = this.add.graphics().setDepth(7);
+            bg.fillStyle(0xffffff, 0.88);
+            bg.fillRoundedRect(bx, by, 110, 62, 10);
+            bg.lineStyle(3, 0x333333, 1);
+            bg.strokeRoundedRect(bx, by, 110, 62, 10);
+            bg.fillStyle(0xffffff, 0.88);
+            bg.fillTriangle(a.x - 5, by + 62, a.x + 5, by + 62, a.x, by + 78);
+            const sg = this.add.graphics().setDepth(8);
+            Draw.shape(sg, a.shape, bx + 30, by + 31, 14, SHAPE_COLORS[a.shape]);
+            const lt = this.add
+              .text(bx + 65, by + 31, SHAPE_NAMES[a.shape], {
+                fontFamily: "Arial",
+                fontSize: "13px",
+                color: "#111",
+                fontStyle: "bold",
+              })
+              .setOrigin(0.5, 0.5)
+              .setDepth(9);
+            this.bubbleGfxArr.push({ bg, sg, lt, animal: a });
+          });
+        }
+
+        tryAction() {
+          if (this.gameState !== "PLAYING") return;
+          const ox = this.playerSprite.x,
+            oy = this.playerSprite.y;
+
+          if (!this.carrying) {
+            let closest = null,
+              minD = 90;
+            this.shapes.forEach((s) => {
+              if (s.picked) return;
+              const d = Phaser.Math.Distance.Between(ox, oy, s.x, s.y);
+              if (d < minD) {
+                minD = d;
+                closest = s;
+              }
+            });
+            if (closest) {
+              closest.picked = true;
+              this.carrying = closest.type;
+              this.carryText.setText(
+                `Носиш: ${SHAPE_NAMES[this.carrying]} — занеси го на правилното животно!`,
+              );
+              this.showMsg(`Взе ${SHAPE_NAMES[this.carrying]}!`, 0xffee58, ox, oy);
+            }
+          } else {
+            let closest = null,
+              minD = 95;
+            this.animals.forEach((a) => {
+              if (a.done) return;
+              const d = Phaser.Math.Distance.Between(ox, oy, a.x, a.y);
+              if (d < minD) {
+                minD = d;
+                closest = a;
+              }
+            });
+            if (closest) {
+              if (this.carrying === closest.shape) {
+                closest.done = true;
+                this.delivered++;
+                const e = this.bubbleGfxArr.find((b) => b.animal === closest);
+                if (e) {
+                  e.bg.destroy();
+                  e.sg.destroy();
+                  e.lt.destroy();
+                }
+                this.showMsg(`✅ Браво! Правилен ${SHAPE_NAMES[this.carrying]}!`, 0x4caf50, ox, oy);
+                this.carrying = null;
+                this.carryText.setText("Намери правилната фигура и я занеси на животното!");
+                this.scoreText.setText(`🌲 Доставени: ${this.delivered} / ${this.totalNeeded}`);
+                this.checkEnd();
+              } else {
+                this.errors++;
+                this.errorText.setText(`❌ Грешки: ${this.errors} / ${L1.MAX_ERRORS}`);
+                this.showMsg(
+                  `❌ ${closest.label} иска ${SHAPE_NAMES[closest.shape]}!`,
+                  0xf44336,
+                  ox,
+                  oy,
+                );
+                const obj = this.shapes.find((s) => s.type === this.carrying && s.picked);
+                if (obj) obj.picked = false;
+                this.carrying = null;
+                this.carryText.setText("Намери правилната фигура и я занеси на животното!");
+                this.checkEnd();
+              }
+            } else {
+              const obj = this.shapes.find((s) => s.type === this.carrying && s.picked);
+              if (obj) obj.picked = false;
+              this.showMsg("Пусна фигурата.", 0xaaaaaa, ox, oy);
+              this.carrying = null;
+              this.carryText.setText("Намери правилната фигура и я занеси на животното!");
+            }
+          }
+        }
+
+        showMsg(text, color, x, y) {
+          const t = this.add
+            .text(x, y - 70, text, {
+              fontFamily: "Arial",
+              fontSize: "20px",
+              color: "#" + color.toString(16).padStart(6, "0"),
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 4,
+            })
+            .setOrigin(0.5)
+            .setDepth(50);
+          this.tweens.add({
+            targets: t,
+            y: t.y - 55,
+            alpha: 0,
+            duration: 2400,
+            onComplete: () => t.destroy(),
+          });
+        }
+
+        checkEnd() {
+          if (this.errors >= L1.MAX_ERRORS) {
+            this.gameState = "OVER";
+            this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
+            this.add
+              .text(W / 2, H / 2, "😢 ОПИТАЙ ПАК! 🦉\nПрезареди играта", {
+                fontSize: "40px",
+                color: "#ef9a9a",
+                align: "center",
+              })
+              .setOrigin(0.5)
+              .setDepth(101);
+          } else if (this.delivered >= this.totalNeeded) {
+            this.gameState = "OVER";
+            this.time.delayedCall(800, () => {
+              this.cameras.main.fade(600, 0, 0, 0, false, (_, p) => {
+                if (p >= 1) this.scene.start("TransitionScene");
+              });
+            });
+          }
+        }
+
+        update(_, delta) {
+          if (this.gameState !== "PLAYING") return;
+          this.tempTimer += delta;
+
+          let dx = 0,
+            dy = 0;
+          if (this.cursors.left.isDown || this.wasd.A.isDown) dx = -1;
+          else if (this.cursors.right.isDown || this.wasd.D.isDown) dx = 1;
+          if (this.cursors.up.isDown || this.wasd.W.isDown) dy = -1;
+          else if (this.cursors.down.isDown || this.wasd.S.isDown) dy = 1;
+
+          const isMoving = dx !== 0 || dy !== 0;
+
+          if (isMoving) {
+            if (dx && dy) {
+              dx *= 0.707;
+              dy *= 0.707;
+            }
+            this.playerSprite.x = Phaser.Math.Clamp(
+              this.playerSprite.x + (dx * L1.SPEED * delta) / 1000,
+              30,
+              W - 30,
+            );
+            this.playerSprite.y = Phaser.Math.Clamp(
+              this.playerSprite.y + (dy * L1.SPEED * delta) / 1000,
+              65,
+              H - 60,
+            );
+          }
+
+          updateCharacterDirection(this.playerSprite, dx, dy, isMoving, this.tempTimer);
+
+          this.animals.forEach((a) => {
+            if (!a.done) {
+              const adx = this.playerSprite.x - a.sprite.x;
+              const ady = this.playerSprite.y - a.sprite.y;
+              updateCharacterDirection(a.sprite, adx, ady, true, 0);
+              a.sprite.setScale(3.5, 3.5);
+            }
+          });
+
+          this.mainGfx.clear();
+          this.carriedItemIcon.clear();
+
+          this.shapes.forEach((s) => {
+            if (!s.picked) {
+              this.mainGfx.lineStyle(3, SHAPE_COLORS[s.type], 0.45);
+              this.mainGfx.strokeCircle(s.x, s.y, 26);
+              Draw.shape(this.mainGfx, s.type, s.x, s.y, 16, SHAPE_COLORS[s.type]);
+            }
+          });
+
+          if (this.carrying) {
+            Draw.shape(
+              this.carriedItemIcon,
+              this.carrying,
+              this.playerSprite.x,
+              this.playerSprite.y - 50,
+              12,
+              SHAPE_COLORS[this.carrying],
+            );
+          }
+        }
+      }
+
+      // ============================================================
+      // LEVEL 2: SHOP (ОБНОВЕНИ БАЛОНЧЕТА С ИСТИНСКИ СПРАЙТОВЕ)
+      // ============================================================
+      class Customer {
+        constructor(scene, id, slotIndex) {
+          this.scene = scene;
+          this.id = id;
+          this.slotIndex = slotIndex;
+
+          const usedTypes = scene.customers.map((c) => c.animalType);
+          const available = ANIMALS.filter((a) => !usedTypes.includes(a));
+          this.animalType =
+            available.length > 0
+              ? Phaser.Utils.Array.GetRandom(available)
+              : Phaser.Utils.Array.GetRandom(ANIMALS);
+
+          this.targetItem = ANIMAL_PREFS[this.animalType];
+          this.quantity = Phaser.Math.Between(L2.MIN_ORDER, L2.MAX_ORDER);
+
+          this.targetX = scene.customerSlots[slotIndex].x;
+          this.targetY = scene.customerSlots[slotIndex].y;
+
+          this.x = ZONES.DOOR.x;
+          this.y = ZONES.DOOR.y;
+
+          this.sprite = scene.add
+            .sprite(this.x, this.y, "sprite_" + this.animalType)
+            .setScale(3.5)
+            .setDepth(11);
+
+          this.state = "walking";
+          this.patience = L2.CUSTOMER_PATIENCE;
+          this.elapsed = 0;
+          this.tempTimer = 0;
+
+          this.bubbleText = null;
+          this.bubbleIcon = null; // Динамичен спрайт за балончето
+        }
+
+        update(delta) {
+          this.tempTimer += delta;
+          if (this.state === "walking") {
+            const dx = this.targetX - this.x,
+              dy = this.targetY - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 8) {
+              this.x = this.targetX;
+              this.y = this.targetY;
+              this.state = "waiting";
+              updateCharacterDirection(this.sprite, 0, 0, false, this.tempTimer);
+
+              // Балончето се създава веднъж при пристигане на гишето
+              // Иконата използва оригиналния зареден спрайт (carrot, fish, honey, acorn)
+              this.bubbleText = this.scene.add
+                .text(this.x + 25, this.y - 145, this.quantity.toString(), {
+                  fontSize: "36px",
+                  color: "#111",
+                  fontStyle: "bold",
+                })
+                .setOrigin(0.5)
+                .setDepth(16);
+
+              this.bubbleIcon = this.scene.add
+                .image(this.x - 25, this.y - 145, this.targetItem)
+                .setScale(2.2)
+                .setDepth(16);
+            } else {
+              const step = 150 * (delta / 1000);
+              this.x += (dx / dist) * step;
+              this.y += (dy / dist) * step;
+              this.sprite.x = this.x;
+              this.sprite.y = this.y;
+              updateCharacterDirection(this.sprite, dx, dy, true, this.tempTimer);
+            }
+          } else if (this.state === "waiting") {
+            this.elapsed += delta;
+            const player = this.scene.player;
+            if (player) {
+              const adx = player.x - this.x;
+              const ady = player.y - this.y;
+              updateCharacterDirection(this.sprite, adx, ady, true, 0);
+              this.sprite.setScale(3.5, 3.5);
+            }
+            if (this.elapsed >= this.patience) {
+              if (this.bubbleText) this.bubbleText.destroy();
+              if (this.bubbleIcon) this.bubbleIcon.destroy();
+              this.scene.onCustomerEvaluated(this, { ok: false, reason: "timeout" });
+            }
+          } else if (this.state === "leaving") {
+            if (this.bubbleText) {
+              this.bubbleText.destroy();
+              this.bubbleText = null;
+            }
+            if (this.bubbleIcon) {
+              this.bubbleIcon.destroy();
+              this.bubbleIcon = null;
+            }
+            const dx = ZONES.DOOR.x - this.x,
+              dy = ZONES.DOOR.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 10) {
+              this.sprite.destroy();
+              this.state = "gone";
+            } else {
+              const step = 180 * (delta / 1000);
+              this.x += (dx / dist) * step;
+              this.y += (dy / dist) * step;
+              this.sprite.x = this.x;
+              this.sprite.y = this.y;
+              updateCharacterDirection(this.sprite, dx, dy, true, this.tempTimer);
+            }
+          }
+        }
+
+        evaluate(placedItems) {
+          const wrong = placedItems.filter((i) => i !== this.targetItem);
+          if (wrong.length > 0) return { ok: false, reason: "wrong_item" };
+          if (placedItems.length !== this.quantity)
+            return { ok: false, reason: "wrong_count", count: placedItems.length };
+          return { ok: true };
+        }
+
+        drawBubble(scene) {
+          if (this.state !== "waiting") return;
+          const bx = this.x - 80,
+            by = this.y - 200;
+          const bw = 160,
+            bh = 110;
+
+          // Контур на балончето
+          scene.bubbleGfx.fillStyle(0xffffff, 0.93);
+          scene.bubbleGfx.fillRoundedRect(bx, by, bw, bh, 10);
+          scene.bubbleGfx.lineStyle(3, 0x333333, 1);
+          scene.bubbleGfx.strokeRoundedRect(bx, by, bw, bh, 10);
+          scene.bubbleGfx.fillStyle(0xffffff, 0.93);
+          scene.bubbleGfx.fillTriangle(
+            this.x - 8,
+            by + bh,
+            this.x + 8,
+            by + bh,
+            this.x,
+            by + bh + 16,
+          );
+
+          // Лента за търпението
+          const barW = bw - 16,
+            barH = 10;
+          const barX = bx + 8,
+            barY = by + bh - 18;
+          scene.bubbleGfx.fillStyle(0xcccccc, 1);
+          scene.bubbleGfx.fillRoundedRect(barX, barY, barW, barH, 4);
+
+          const ratio = Math.max(0, 1 - this.elapsed / this.patience);
+          const barColor = ratio > 0.5 ? 0x4caf50 : ratio > 0.25 ? 0xffc107 : 0xf44336;
+          scene.bubbleGfx.fillStyle(barColor, 1);
+          scene.bubbleGfx.fillRoundedRect(barX, barY, barW * ratio, barH, 4);
+        }
+      }
+
+      class ShopPlayer {
+        constructor(scene) {
+          this.scene = scene;
+          this.x = 640;
+          this.y = 400;
+          this.carrying = [];
+          this.tempTimer = 0;
+
+          this.sprite = scene.add.sprite(this.x, this.y, "sprite_bird").setScale(3.5).setDepth(15);
+        }
+
+        init() {
+          this.cursors = this.scene.input.keyboard.createCursorKeys();
+          this.keys = this.scene.input.keyboard.addKeys("W,A,S,D");
+          this.scene.input.keyboard.on("keydown-SPACE", () => this.tryAction());
+        }
+
+        tryAction() {
+          if (this.scene.gameState !== "PLAYING") return;
+          if (
+            Phaser.Math.Distance.Between(this.x, this.y, ZONES.TRASH.x + 40, ZONES.TRASH.y + 40) <
+            100
+          ) {
+            if (this.carrying.length > 0) {
+              this.carrying = [];
+              this.scene.showMsg("Ръцете са изчистени!", 0x4caf50, this.x, this.y);
+            }
+            return;
+          }
+          for (const shelf of ZONES.SHELVES) {
+            if (Phaser.Math.Distance.Between(this.x, this.y, shelf.x, shelf.y) < 100) {
+              if (this.carrying.length >= L2.MAX_CARRY) {
+                this.scene.showMsg(
+                  `Ръцете са пълни! (Макс ${L2.MAX_CARRY})`,
+                  0xff9800,
+                  this.x,
+                  this.y,
+                );
+              } else {
+                this.carrying.push(shelf.item);
+                this.scene.showMsg(`Взе 1 ${ITEM_NAMES[shelf.item]}`, 0xffffff, this.x, this.y);
+              }
+              return;
+            }
+          }
+          const cz = ZONES.COUNTER;
+          if (
+            this.x > cz.x - 50 &&
+            this.x < cz.x + cz.w + 50 &&
+            this.y > cz.y - 100 &&
+            this.y < cz.y + cz.h + 100
+          ) {
+            if (this.carrying.length > 0) {
+              this.scene.onPlayerPlace([...this.carrying]);
+              this.carrying = [];
+            } else {
+              this.scene.showMsg("Нямаш нищо в ръцете!", 0xff9800, this.x, this.y);
+            }
+          }
+        }
+
+        update(delta) {
+          if (this.scene.gameState !== "PLAYING") return;
+          this.tempTimer += delta;
+          let dx = 0,
+            dy = 0;
+          if (this.cursors.left.isDown || this.keys.A.isDown) dx = -1;
+          else if (this.cursors.right.isDown || this.keys.D.isDown) dx = 1;
+          if (this.cursors.up.isDown || this.keys.W.isDown) dy = -1;
+          else if (this.cursors.down.isDown || this.keys.S.isDown) dy = 1;
+
+          const isMoving = dx !== 0 || dy !== 0;
+
+          if (isMoving) {
+            if (dx && dy) {
+              dx *= 0.707;
+              dy *= 0.707;
+            }
+            this.x = Phaser.Math.Clamp(
+              this.x + (dx * L2.PLAYER_SPEED * delta) / 1000,
+              100,
+              W - 100,
+            );
+            this.y = Phaser.Math.Clamp(
+              this.y + (dy * L2.PLAYER_SPEED * delta) / 1000,
+              200,
+              H - 100,
+            );
+
+            this.sprite.x = this.x;
+            this.sprite.y = this.y;
+          }
+
+          updateCharacterDirection(this.sprite, dx, dy, isMoving, this.tempTimer);
+        }
+      }
+
+      class ShopScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "ShopScene" });
+        }
+        preload() {
+          preloadCommonAssets(this);
+        }
+        create() {
+          document.getElementById("game-title").textContent = "🌲 ГОРСКИ МАГАЗИН 🐻";
+          document.getElementById("game-subtitle").textContent =
+            "Трета група · Математика · Броене до 10 · Обслужвай животните!";
+
+          this.gameState = "PLAYING";
+          this.served = 0;
+          this.errors = 0;
+          this.customers = [];
+          this.customerId = 0;
+          this.spawnTimer = L2.CUSTOMER_SPAWN_INTERVAL - 2000;
+          this.counterItemSprites = [];
+          this.carriedItemSprites = [];
+
+          this.add.image(0, 0, "shop_interior").setOrigin(0).setDisplaySize(W, H);
+
+          this._drawShopLayout();
+
+          this.player = new ShopPlayer(this);
+          this.player.init();
+
+          this.customerSlots = [
+            { x: 800, y: 460, occupied: false },
+            { x: 920, y: 460, occupied: false },
+            { x: 1040, y: 460, occupied: false },
+          ];
+
+          this.bubbleGfx = this.add.graphics().setDepth(15);
+          this.hudGfx = this.add.graphics().setDepth(20);
+
+          this.hudGfx.fillStyle(0x1a2e1a, 0.9);
+          this.hudGfx.fillRect(0, 0, W, 60);
+
+          this.scoreText = this.add
+            .text(20, 15, `🌟 Успешни: 0 / ${L2.TARGET_SCORE}`, {
+              fontFamily: "Arial",
+              fontSize: "26px",
+              color: "#FFF",
+              fontStyle: "bold",
+            })
+            .setDepth(21);
+          this.errorText = this.add
+            .text(W - 20, 15, `❌ Грешки: 0 / ${L2.MAX_ERRORS}`, {
+              fontFamily: "Arial",
+              fontSize: "26px",
+              color: "#ff5252",
+              fontStyle: "bold",
+            })
+            .setOrigin(1, 0)
+            .setDepth(21);
+          this.carryText = this.add
+            .text(W / 2, 80, "Вземи артикули от рафтовете!", {
+              fontSize: "24px",
+              color: "#FFD700",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 4,
+            })
+            .setOrigin(0.5, 0)
+            .setDepth(21);
+
+          this.cameras.main.fadeIn(500);
+        }
+
+        showMsg(text, color, x, y) {
+          const t = this.add
+            .text(x, y - 80, text, {
+              fontSize: "20px",
+              color: "#" + color.toString(16).padStart(6, "0"),
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 4,
+            })
+            .setOrigin(0.5)
+            .setDepth(50);
+          this.tweens.add({
+            targets: t,
+            y: t.y - 50,
+            alpha: 0,
+            duration: 2500,
+            onComplete: () => t.destroy(),
+          });
+        }
+
+        update(_, delta) {
+          if (this.gameState !== "PLAYING") return;
+          this.player.update(delta);
+
+          this.spawnTimer += delta;
+          if (this.spawnTimer >= L2.CUSTOMER_SPAWN_INTERVAL) {
+            const freeIdx = this.customerSlots.findIndex((s) => !s.occupied);
+            if (freeIdx !== -1 && this.customers.length < L2.MAX_CUSTOMERS) {
+              this.spawnTimer = 0;
+              this.customers.push(new Customer(this, this.customerId++, freeIdx));
+              this.customerSlots[freeIdx].occupied = true;
+            }
+          }
+
+          this.customers.forEach((c) => c.update(delta));
+          this.customers = this.customers.filter((c) => c.state !== "gone");
+
+          this.carriedItemSprites.forEach((s) => s.destroy());
+          this.carriedItemSprites = [];
+          this.player.carrying.forEach((item, i) => {
+            const row = Math.floor(i / 5),
+              col = i % 5;
+            const spr = this.add
+              .image(this.player.x - 30 + col * 15, this.player.y - 55 - row * 15, item)
+              .setScale(1.5)
+              .setDepth(16);
+            this.carriedItemSprites.push(spr);
+          });
+
+          if (this.player.carrying.length === 0) {
+            this.carryText.setText("Вземи артикули от рафтовете!");
+          } else {
+            const counts = {};
+            this.player.carrying.forEach((i) => (counts[i] = (counts[i] || 0) + 1));
+            this.carryText.setText(
+              "В ръцете: " +
+                Object.entries(counts)
+                  .map(([k, v]) => `${v} ${ITEM_NAMES[k]}`)
+                  .join(", ") +
+                ` (Макс ${L2.MAX_CARRY})`,
+            );
+          }
+
+          this._drawFrame();
+        }
+
+        _drawShopLayout() {
+          const g = this.add.graphics().setDepth(3);
+
+          ZONES.SHELVES.forEach((shelf) => {
+            g.fillStyle(0x8d6e63, 1);
+            g.fillRoundedRect(shelf.x - 55, shelf.y - 55, 110, 110, 8);
+            g.lineStyle(3, 0x5d4037, 1);
+            g.strokeRoundedRect(shelf.x - 55, shelf.y - 55, 110, 110, 8);
+            g.fillStyle(0x4e342e, 1);
+            g.fillRect(shelf.x - 55, shelf.y + 38, 110, 22);
+          });
+
+          ZONES.SHELVES.forEach((shelf) => {
+            this.add
+              .text(shelf.x, shelf.y + 49, shelf.name, {
+                fontFamily: "Arial",
+                fontSize: "13px",
+                color: "#ffe0b2",
+                fontStyle: "bold",
+              })
+              .setOrigin(0.5, 0.5)
+              .setDepth(4);
+          });
+
+          ZONES.SHELVES.forEach((shelf) => {
+            this.add.image(shelf.x, shelf.y, shelf.item).setScale(2.5).setDepth(4);
+          });
+
+          const cz = ZONES.COUNTER;
+          g.fillStyle(0xa0785a, 1);
+          g.fillRoundedRect(cz.x, cz.y, cz.w, cz.h, 10);
+          g.lineStyle(4, 0x5d4037, 1);
+          g.strokeRoundedRect(cz.x, cz.y, cz.w, cz.h, 10);
+          g.fillStyle(0xc8a07a, 0.35);
+          g.fillRoundedRect(cz.x + 8, cz.y + 8, cz.w - 16, 18, 6);
+          this.add
+            .text(cz.x + cz.w / 2, cz.y + cz.h / 2, "🛒 ГИШЕ", {
+              fontFamily: "Arial",
+              fontSize: "18px",
+              color: "#fff9e7",
+              fontStyle: "bold",
+            })
+            .setOrigin(0.5)
+            .setDepth(4);
+
+          const tz = ZONES.TRASH;
+          g.fillStyle(0x607d8b, 1);
+          g.fillRoundedRect(tz.x + 10, tz.y + 20, tz.w - 20, tz.h - 20, 6);
+          g.lineStyle(3, 0x37474f, 1);
+          g.strokeRoundedRect(tz.x + 10, tz.y + 20, tz.w - 20, tz.h - 20, 6);
+          g.fillStyle(0x455a64, 1);
+          g.fillRoundedRect(tz.x + 4, tz.y + 12, tz.w - 8, 14, 4);
+          g.lineStyle(2, 0x263238, 1);
+          g.strokeRoundedRect(tz.x + 4, tz.y + 12, tz.w - 8, 14, 4);
+          g.lineStyle(2, 0x37474f, 0.4);
+          for (let i = 0; i < 3; i++) {
+            const lx = tz.x + 22 + i * 14;
+            g.lineBetween(lx, tz.y + 26, lx, tz.y + tz.h - 8);
+          }
+          this.add
+            .text(tz.x + tz.w / 2, tz.y + tz.h + 10, "🗑 ИЗХВЪРЛИ", {
+              fontFamily: "Arial",
+              fontSize: "13px",
+              color: "#b0bec5",
+              fontStyle: "bold",
+            })
+            .setOrigin(0.5, 0)
+            .setDepth(4);
+        }
+
+        _drawFrame() {
+          this.bubbleGfx.clear();
+          this.customers.forEach((c) => {
+            c.drawBubble(this);
+          });
+        }
+
+        onPlayerPlace(items) {
+          const waiting = this.customers.filter((c) => c.state === "waiting");
+          if (waiting.length === 0) {
+            this.showMsg("Няма чакащ клиент тук!", 0xff9800, this.player.x, this.player.y);
+            return;
+          }
+          let closest = waiting[0],
+            minD = Infinity;
+          waiting.forEach((c) => {
+            const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y);
+            if (d < minD) {
+              minD = d;
+              closest = c;
+            }
+          });
+
+          this.serveX = closest.x;
+
+          this.counterItemSprites.forEach((s) => s.destroy());
+          this.counterItemSprites = [];
+          items.forEach((item, i) => {
+            const col = i % 5,
+              row = Math.floor(i / 5);
+            const img = this.add
+              .image(ZONES.COUNTER.x + 50 + col * 40, ZONES.COUNTER.y + 40 - row * 20, item)
+              .setScale(2)
+              .setDepth(12);
+            this.counterItemSprites.push(img);
+          });
+
+          this.onCustomerEvaluated(closest, closest.evaluate(items));
+        }
+
+        onCustomerEvaluated(customer, result) {
+          customer.state = "leaving";
+          this.customerSlots[customer.slotIndex].occupied = false;
+          this.time.delayedCall(1500, () => {
+            this.counterItemSprites.forEach((s) => s.destroy());
+            this.counterItemSprites = [];
+          });
+
+          if (result.ok) {
+            this.served++;
+            this.showMsg(
+              `✅ Точно ${customer.quantity}! Браво!`,
+              0x4caf50,
+              this.player.x,
+              this.player.y,
+            );
+          } else {
+            this.errors++;
+            let msg = "❌ Грешка!";
+            if (result.reason === "timeout") msg = "⏳ Клиентът си тръгна!";
+            else if (result.reason === "wrong_item")
+              msg = `❌ Искаше ${ITEM_NAMES[customer.targetItem]}!`;
+            else if (result.reason === "wrong_count")
+              msg = `❌ Искаше ${customer.quantity}, а ти даде ${result.count}!`;
+            this.showMsg(msg, 0xf44336, this.player.x, this.player.y);
+          }
+
+          this.scoreText.setText(`🌟 Успешни: ${this.served} / ${L2.TARGET_SCORE}`);
+          this.errorText.setText(`❌ Грешки: ${this.errors} / ${L2.MAX_ERRORS}`);
+          this.checkEnd();
+        }
+
+        checkEnd() {
+          if (this.errors >= L2.MAX_ERRORS) {
+            this.gameState = "OVER";
+            this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
+            this.add
+              .text(W / 2, H / 2, "😢 ЗАГУБА! ОПИТАЙ ПАК! 😢\nПрезареди играта", {
+                fontSize: "40px",
+                color: "#ff5252",
+                align: "center",
+              })
+              .setOrigin(0.5)
+              .setDepth(101);
+          } else if (this.served >= L2.TARGET_SCORE) {
+            this.gameState = "OVER";
+            this.time.delayedCall(700, () => {
+              this.cameras.main.fade(600, 0, 0, 0, false, (_, p) => {
+                if (p >= 1) this.scene.start("Transition2Scene");
+              });
+            });
+          }
+        }
+      }
+
+      // ============================================================
+      // TRANSITION 2: LEVEL 2 → LEVEL 3 (ОБНОВЕНО С КОРЕКТНО СТЪПИЛИ ЖИВОТНИ)
+      // ============================================================
+      class Transition2Scene extends Phaser.Scene {
+        constructor() {
+          super({ key: "Transition2Scene" });
+        }
+        preload() {
+          preloadCommonAssets(this);
+        }
+        create() {
+          document.getElementById("game-title").textContent = "🌲 ГОРСКИ МАГАЗИН 🐻";
+          document.getElementById("game-subtitle").textContent = "Трета група · Математика";
+
+          this.add.image(0, 0, "outside_day").setOrigin(0).setDisplaySize(W, H);
+
+          // Преместени животни максимално надолу, за да стъпят на земята в дневния бекграунд
+          const groundY = H - 90;
+          this.add
+            .sprite(W / 2 - 310, groundY, "sprite_bear")
+            .setScale(3.5)
+            .setFrame(4);
+          this.add
+            .sprite(W / 2 - 200, groundY + 10, "sprite_rabbit")
+            .setScale(3.5)
+            .setFrame(4);
+          this.add
+            .sprite(W / 2 + 180, groundY, "sprite_fox")
+            .setScale(3.5)
+            .setFrame(4);
+          this.add
+            .sprite(W / 2 + 290, groundY + 10, "sprite_squirrel")
+            .setScale(3.5)
+            .setFrame(4);
+
+          this.add
+            .text(W / 2, 55, "🎉 НИВО 2 ЗАВЪРШЕНО! 🎉", {
+              fontFamily: "Arial",
+              fontSize: "46px",
+              color: "#fff9c4",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 6,
+            })
+            .setOrigin(0.5, 0);
+          this.add
+            .text(W / 2, 118, "Магазинът е пълен с клиенти! Сега е време за ПАРТИ!", {
+              fontFamily: "Arial",
+              fontSize: "21px",
+              color: "#c8e6c9",
+              stroke: "#000",
+              strokeThickness: 3,
+            })
+            .setOrigin(0.5, 0);
+
+          const btnBg = this.add.graphics();
+          const btnX = W / 2,
+            btnY = H - 105;
+
+          // Разширен бутон (420px), за да не излиза текста от него
+          const drawBtn = (h) => {
+            btnBg.clear();
+            btnBg.fillStyle(h ? 0x7b1fa2 : 0x4a148c, 1);
+            btnBg.fillRoundedRect(btnX - 210, btnY - 32, 420, 64, 16);
+            btnBg.lineStyle(3, h ? 0xce93d8 : 0x9c27b0, 1);
+            btnBg.strokeRoundedRect(btnX - 210, btnY - 32, 420, 64, 16);
+          };
+          drawBtn(false);
+
+          const btnTxt = this.add
+            .text(btnX, btnY, "🎊  ПРОДЪЛЖИ КЪМ НИВО 3", {
+              fontFamily: "Arial",
+              fontSize: "24px",
+              color: "#f3e5f5",
+              fontStyle: "bold",
+            })
+            .setOrigin(0.5, 0.5);
+
+          const zone = this.add.zone(btnX, btnY, 420, 64).setInteractive();
+          zone.on("pointerover", () => {
+            drawBtn(true);
+            btnTxt.setColor("#ffffff");
+          });
+          zone.on("pointerout", () => {
+            drawBtn(false);
+            btnTxt.setColor("#f3e5f5");
+          });
+          zone.on("pointerdown", () => this.scene.start("PartyScene"));
+
+          this.input.keyboard.once("keydown-SPACE", () => this.scene.start("PartyScene"));
+          this.input.keyboard.once("keydown-ENTER", () => this.scene.start("PartyScene"));
+
+          this.cameras.main.fadeIn(600);
+        }
+      }
+
+      // ============================================================
+      // LEVEL 3: PARTY SCENE (ОБНОВЕНО С ПОДЧЕРТАВАЩИ СВЕТЕЩИ ЗОНИ)
+      // ============================================================
+      class PartyScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "PartyScene" });
+        }
+        preload() {
+          preloadCommonAssets(this);
+        }
+        create() {
+          document.getElementById("game-title").textContent = "🎊 ГОРСКИ ПРАЗНИК 🎊";
+          document.getElementById("game-subtitle").textContent =
+            "Трета група · Математика · Пространствени отношения · Украси за празника!";
+
+          this.gameState = "PLAYING";
+          this.errors = 0;
+          this.carrying = null;
+          this.tempTimer = 0;
+
+          this.add.image(0, 0, "outside_day").setOrigin(0).setDisplaySize(W, H);
+
+          this.birdSprite = this.add.sprite(640, 300, "sprite_bird").setScale(3.5).setDepth(15);
+
+          this.tasks = SPATIAL_TASKS.map((t) => ({ ...t, done: false }));
+          this.totalTasks = this.tasks.length;
+          this.doneTasks = 0;
+
+          this.pickups = this.tasks.map((t) => ({
+            taskId: t.id,
+            x: t.pickupX,
+            y: t.pickupY,
+            picked: false,
+          }));
+          this.placedDecorations = [];
+
+          this.add.sprite(180, 520, "sprite_bear").setScale(3.5).setFrame(4);
+          this.add.sprite(330, 540, "sprite_rabbit").setScale(3.5).setFrame(4);
+          this.add.sprite(950, 530, "sprite_fox").setScale(3.5).setFrame(4);
+          this.add.sprite(1070, 535, "sprite_squirrel").setScale(3.5).setFrame(4);
+
+          this.decorGfx = this.add.graphics().setDepth(3);
+          this.mainGfx = this.add.graphics().setDepth(10);
+
+          this.zoneHintText = null; // Индикатор за децата къде се намира целевата област
+
+          this.cursors = this.input.keyboard.createCursorKeys();
+          this.wasd = this.input.keyboard.addKeys("W,A,S,D");
+          this.input.keyboard.on("keydown-SPACE", () => this.tryAction());
+
+          this.add.rectangle(0, 0, W, 58, 0x1a0a2e).setOrigin(0, 0).setDepth(24);
+          this.scoreText = this.add
+            .text(20, 14, `🎊 Украси: 0 / ${this.totalTasks}`, {
+              fontFamily: "Arial",
+              fontSize: "26px",
+              color: "#f3e5f5",
+              fontStyle: "bold",
+            })
+            .setDepth(25);
+          this.errorText = this.add
+            .text(W - 20, 14, `❌ Грешки: 0 / ${L3.MAX_ERRORS}`, {
+              fontFamily: "Arial",
+              fontSize: "26px",
+              color: "#ff8a80",
+              fontStyle: "bold",
+            })
+            .setOrigin(1, 0)
+            .setDepth(25);
+          this.hintText = this.add
+            .text(W / 2, 66, "", {
+              fontFamily: "Arial",
+              fontSize: "22px",
+              color: "#ffe0b2",
+              fontStyle: "bold",
+              stroke: "#1a0a2e",
+              strokeThickness: 4,
+            })
+            .setOrigin(0.5, 0)
+            .setDepth(25);
+
+          this.pickupLabels = this.tasks.map((t) => {
+            return this.add
+              .text(t.pickupX, t.pickupY + 30, t.decorName, {
+                fontFamily: "Arial",
+                fontSize: "14px",
+                color: "#fff",
+                stroke: "#000",
+                strokeThickness: 3,
+              })
+              .setOrigin(0.5, 0)
+              .setDepth(7);
+          });
+
+          this._showNextHint();
+          this.cameras.main.fadeIn(550);
+        }
+
+        _showNextHint() {
+          const next = this.tasks.find((t) => !t.done);
+          if (!next) {
+            this.hintText.setText("Всички украси са наредени! 🎉");
+            return;
+          }
+          this.hintText.setText(`👉 ${next.hint}`);
+        }
+
+        _drawDecoration(g, type, x, y, s = 1) {
+          switch (type) {
+            case "balloon":
+              g.fillStyle(0xff5252);
+              g.fillCircle(x, y, 16 * s);
+              break;
+            case "garland":
+              for (let i = 0; i < 5; i++) {
+                g.fillStyle(i % 2 ? 0xffeb3b : 0x4caf50);
+                g.fillCircle(x - 20 + i * 10, y, 6 * s);
+              }
+              break;
+            case "lantern":
+              g.fillStyle(0xffd54f);
+              g.fillRect(x - 10, y - 15, 20 * s, 30 * s);
+              break;
+            case "flower":
+              g.fillStyle(0xf06292);
+              for (let i = 0; i < 5; i++)
+                g.fillCircle(x + Math.cos(i) * 10, y + Math.sin(i) * 10, 8 * s);
+              break;
+            case "star":
+              g.fillStyle(0xffee58);
+              g.fillCircle(x, y, 15 * s);
+              break;
+          }
+        }
+
+        tryAction() {
+          if (this.gameState !== "PLAYING") return;
+          const bx = this.birdSprite.x,
+            by = this.birdSprite.y;
+
+          if (!this.carrying) {
+            let closest = null,
+              minD = 90;
+            this.pickups.forEach((p) => {
+              if (p.picked) return;
+              const d = Phaser.Math.Distance.Between(bx, by, p.x, p.y);
+              if (d < minD) {
+                minD = d;
+                closest = p;
+              }
+            });
+            if (closest) {
+              closest.picked = true;
+              this.carrying = this.tasks[closest.taskId];
+              this.pickupLabels[closest.taskId].setVisible(false);
+              this.showMsg(`Взе ${this.carrying.decorName}!`, 0xffee58, bx, by);
+              this.hintText.setText(`📍 ${this.carrying.hint}`);
+            }
+          } else {
+            const t = this.carrying.target;
+            const inZone =
+              bx >= t.cx - t.hw && bx <= t.cx + t.hw && by >= t.cy - t.hh && by <= t.cy + t.hh;
+
+            if (inZone && !this.carrying.done) {
+              this.carrying.done = true;
+              this.placedDecorations.push({ type: this.carrying.decoration, x: t.cx, y: t.cy });
+              this.doneTasks++;
+              this.carrying = null;
+              this.scoreText.setText(`🎊 Украси: ${this.doneTasks} / ${this.totalTasks}`);
+              this._showNextHint();
+              if (this.doneTasks === this.totalTasks) {
+                this.gameState = "OVER";
+                this.time.delayedCall(900, () => this.scene.start("CutsceneScene"));
+              }
+            } else {
+              this.errors++;
+              this.errorText.setText(`❌ Грешки: ${this.errors} / ${L3.MAX_ERRORS}`);
+              if (this.errors >= L3.MAX_ERRORS) {
+                this.gameState = "OVER";
+                this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
+                this.add
+                  .text(W / 2, H / 2, "😢 ОПИТАЙ ПАК! 🎊\nПрезареди играта", {
+                    fontSize: "40px",
+                    color: "#ef9a9a",
+                    align: "center",
+                  })
+                  .setOrigin(0.5)
+                  .setDepth(101);
+              } else {
+                this.showMsg("❌ Не е правилното място!", 0xf44336, bx, by);
+              }
+            }
+          }
+        }
+
+        showMsg(text, color, x, y) {
+          const t = this.add
+            .text(x, y - 75, text, {
+              fontFamily: "Arial",
+              fontSize: "20px",
+              color: "#" + color.toString(16).padStart(6, "0"),
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 4,
+            })
+            .setOrigin(0.5)
+            .setDepth(50);
+          this.tweens.add({
+            targets: t,
+            y: t.y - 55,
+            alpha: 0,
+            duration: 2500,
+            onComplete: () => t.destroy(),
+          });
+        }
+
+        update(_, delta) {
+          if (this.gameState !== "PLAYING") return;
+          this.tempTimer += delta;
+          let dx = 0,
+            dy = 0;
+          if (this.cursors.left.isDown || this.wasd.A.isDown) dx = -1;
+          else if (this.cursors.right.isDown || this.wasd.D.isDown) dx = 1;
+          if (this.cursors.up.isDown || this.wasd.W.isDown) dy = -1;
+          else if (this.cursors.down.isDown || this.wasd.S.isDown) dy = 1;
+
+          const isMoving = dx !== 0 || dy !== 0;
+
+          if (isMoving) {
+            if (dx && dy) {
+              dx *= 0.707;
+              dy *= 0.707;
+            }
+            this.birdSprite.x = Phaser.Math.Clamp(
+              this.birdSprite.x + (dx * L3.BIRD_SPEED * delta) / 1000,
+              20,
+              W - 20,
+            );
+            this.birdSprite.y = Phaser.Math.Clamp(
+              this.birdSprite.y + (dy * L3.BIRD_SPEED * delta) / 1000,
+              62,
+              H - 40,
+            );
+          }
+
+          updateCharacterDirection(this.birdSprite, dx, dy, isMoving, this.tempTimer);
+
+          this.decorGfx.clear();
+          this.mainGfx.clear();
+
+          this.placedDecorations.forEach((d) =>
+            this._drawDecoration(this.decorGfx, d.type, d.x, d.y, 1.2),
+          );
+
+          this.pickups.forEach((p) => {
+            if (!p.picked) {
+              this.mainGfx.lineStyle(3, 0xffd54f, 0.45);
+              this.mainGfx.strokeCircle(p.x, p.y, 26);
+              this._drawDecoration(this.mainGfx, this.tasks[p.taskId].decoration, p.x, p.y);
+            }
+          });
+
+          // СВЕТЕЩ АКЦЕНТ: Визуален ориентир за текущата целева зона
+          const activeTask = this.tasks.find((t) => !t.done);
+          if (activeTask) {
+            const t = activeTask.target;
+            const isCarryingCorrect = this.carrying && this.carrying.id === activeTask.id;
+
+            // Променя цвета си на зелен при правилно носена вещ
+            const strokeColor = isCarryingCorrect ? 0x00ff00 : 0xffffff;
+            const fillColor = isCarryingCorrect ? 0x00ff00 : 0xffffff;
+            const alphaPulse = isCarryingCorrect
+              ? 0.22 + Math.sin(this.tempTimer * 0.005) * 0.1
+              : 0.08;
+
+            this.mainGfx.lineStyle(3, strokeColor, isCarryingCorrect ? 0.8 : 0.4);
+            this.mainGfx.strokeRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
+            this.mainGfx.fillStyle(fillColor, alphaPulse);
+            this.mainGfx.fillRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
+
+            if (!this.zoneHintText) {
+              this.zoneHintText = this.add
+                .text(t.cx, t.cy, "МЯСТО ЗА УКРАСА", {
+                  fontFamily: "Arial",
+                  fontSize: "14px",
+                  color: "#ffffff",
+                  fontStyle: "bold",
+                  stroke: "#000000",
+                  strokeThickness: 3,
+                })
+                .setOrigin(0.5)
+                .setDepth(11);
+            } else {
+              this.zoneHintText.setPosition(t.cx, t.cy).setVisible(true);
+              this.zoneHintText.setColor(isCarryingCorrect ? "#00ff00" : "#ffffff");
+              this.zoneHintText.setText(isCarryingCorrect ? "ПОСТАВИ ТУК!" : "МЯСТО ЗА УКРАСА");
+            }
+          } else {
+            if (this.zoneHintText) this.zoneHintText.setVisible(false);
+          }
+
+          if (this.carrying) {
+            this._drawDecoration(
+              this.mainGfx,
+              this.carrying.decoration,
+              this.birdSprite.x,
+              this.birdSprite.y + 40,
+              0.8,
+            );
+          }
+        }
+      }
+
+      // ============================================================
+      // FINAL CUTSCENE SCENE
+      // ============================================================
+      class CutsceneScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "CutsceneScene" });
+        }
+        preload() {
+          preloadCommonAssets(this);
+        }
+        create() {
+          this.add.image(0, 0, "outside_day").setOrigin(0).setDisplaySize(W, H);
+          this.add.rectangle(0, 0, W, H, 0x000000, 0.6).setOrigin(0);
+
+          this.add.sprite(220, 520, "sprite_bear").setScale(3.5).setFrame(4);
+          this.add.sprite(380, 540, "sprite_rabbit").setScale(3.5).setFrame(4);
+          this.add.sprite(900, 530, "sprite_fox").setScale(3.5).setFrame(4);
+          this.add.sprite(1050, 535, "sprite_squirrel").setScale(3.5).setFrame(4);
+
+          this.add
+            .text(W / 2, H / 2 - 50, "🎉 ПОБЕДА! 🎉\nМагазинът е изцяло готов и украсен!", {
+              fontFamily: "Arial",
+              fontSize: "52px",
+              color: "#fff9c4",
+              fontStyle: "bold",
+              align: "center",
+              stroke: "#000",
+              strokeThickness: 6,
+            })
+            .setOrigin(0.5);
+
+          this.add
+            .text(W / 2, H / 2 + 80, "Натисни SPACE за да започнеш отначало", {
+              fontFamily: "Arial",
+              fontSize: "22px",
+              color: "#c8e6c9",
+            })
+            .setOrigin(0.5);
+
+          this.input.keyboard.once("keydown-SPACE", () => location.reload());
+        }
+      }
+
+      // ============================================================
+      // LAUNCH GAME
+      // ============================================================
+      new Phaser.Game({
+        type: Phaser.CANVAS,
+        width: W,
+        height: H,
+        canvas: document.getElementById("gameCanvas"),
+        pixelArt: true,
+        scene: [
+          ForestScene,
+          TransitionScene,
+          ShopScene,
+          Transition2Scene,
+          PartyScene,
+          CutsceneScene,
+        ],
+      });
+    </script>
+  </body>
+</html>
