@@ -89,6 +89,80 @@
       }
 
       // ============================================================
+      // ГЛОБАЛНА ФУНКЦИЯ ЗА "GAME OVER"
+      // ============================================================
+      function showGameOverScreen(scene, message, textColor = "#ef9a9a") {
+        scene.gameState = "OVER";
+        if (scene.bgm) scene.bgm.stop();
+
+        // Тъмен фон
+        scene.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
+
+        // Заглавие
+        scene.add
+          .text(W / 2, H / 2 - 60, message, {
+            fontFamily: "Arial",
+            fontSize: "46px",
+            color: textColor,
+            fontStyle: "bold",
+            stroke: "#000",
+            strokeThickness: 4,
+          })
+          .setOrigin(0.5)
+          .setDepth(101);
+
+        // Универсална функция за чертане на бутон с персонален цвят на текста
+        const bW = 240,
+          bH = 60;
+        const createBtn = (x, y, text, color, hoverColor, textColorBtn, onClick) => {
+          const bg = scene.add.graphics().setDepth(102);
+          const draw = (hov) => {
+            bg.clear();
+            bg.fillStyle(hov ? hoverColor : color, 1);
+            bg.fillRoundedRect(x - bW / 2, y - bH / 2, bW, bH, 12);
+            bg.lineStyle(3, hov ? 0xffffff : 0xcccccc, hov ? 1 : 0.7);
+            bg.strokeRoundedRect(x - bW / 2, y - bH / 2, bW, bH, 12);
+          };
+          draw(false);
+
+          const txt = scene.add
+            .text(x, y, text, {
+              fontFamily: "Arial",
+              fontSize: "18px",
+              color: textColorBtn,
+              fontStyle: "bold",
+              stroke: "#000000",
+              strokeThickness: 3,
+            })
+            .setOrigin(0.5)
+            .setDepth(103);
+
+          const zone = scene.add.zone(x, y, bW, bH).setInteractive().setDepth(104);
+          zone.on("pointerover", () => {
+            draw(true);
+            txt.setScale(1.05);
+          });
+          zone.on("pointerout", () => {
+            draw(false);
+            txt.setScale(1);
+          });
+          zone.on("pointerdown", onClick);
+        };
+
+        const currentKey = scene.scene.key;
+
+        // 1. Бутон за Рестарт - Тъмносин дизайн (съвпада с Паузата)
+        createBtn(W / 2 - 135, H / 2 + 30, "↺ РЕСТАРТ НИВО", 0x1a2a3a, 0x1e3d52, "#b3e5fc", () => {
+          scene.scene.start(currentKey);
+        });
+
+        // 2. Бутон за Начало - Тъмночервен дизайн (съвпада с Паузата)
+        createBtn(W / 2 + 135, H / 2 + 30, "⏮ КЪМ НАЧАЛО", 0x3e1a1a, 0x6d2a2a, "#ffcdd2", () => {
+          scene.scene.start("StartScene");
+        });
+      }
+
+      // ============================================================
       // НАСТРОЙКИ НИВО 1
       // ============================================================
       const L1 = { SPEED: 260, MAX_ERRORS: 3 };
@@ -431,7 +505,7 @@
           halo.fillEllipse(W / 2, 148, 820, 130);
 
           this.add
-            .text(W / 2, 88, "🌲 ГОРСКИ МАГАЗИН 🐻", {
+            .text(W / 2, 88, "ГОРСКИ МАГАЗИН", {
               fontFamily: "Arial",
               fontSize: "72px",
               color: "#c8e6c9",
@@ -443,7 +517,7 @@
             .setDepth(4);
 
           this.add
-            .text(W / 2, 160, "Помогни на животните да построят своя магазин!", {
+            .text(W / 2, 160, "Помогни на животните да построят и водят своя магазин!", {
               fontFamily: "Arial",
               fontSize: "22px",
               color: "#81c784",
@@ -1360,16 +1434,7 @@
 
         checkEnd() {
           if (this.errors >= L1.MAX_ERRORS) {
-            this.gameState = "OVER";
-            this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
-            this.add
-              .text(W / 2, H / 2, "ОПИТАЙ ПАК! 🦉\nПрезареди играта", {
-                fontSize: "40px",
-                color: "#ef9a9a",
-                align: "center",
-              })
-              .setOrigin(0.5)
-              .setDepth(101);
+            showGameOverScreen(this, "ОПИТАЙ ПАК!", "#ef9a9a");
           } else if (this.delivered >= this.totalNeeded) {
             this.gameState = "OVER";
             if (this.bgm) this.bgm.stop();
@@ -2003,16 +2068,7 @@
 
         checkEnd() {
           if (this.errors >= L2.MAX_ERRORS) {
-            this.gameState = "OVER";
-            this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
-            this.add
-              .text(W / 2, H / 2, "ЗАГУБА! ОПИТАЙ ПАК! \nПрезареди играта", {
-                fontSize: "40px",
-                color: "#ff5252",
-                align: "center",
-              })
-              .setOrigin(0.5)
-              .setDepth(101);
+            showGameOverScreen(this, "ЗАГУБА! ОПИТАЙ ПАК!", "#ff5252");
           } else if (this.served >= L2.TARGET_SCORE) {
             this.gameState = "OVER";
             if (this.bgm) this.bgm.stop();
@@ -2326,16 +2382,7 @@
               this.errorText.setText(`❌ Грешки: ${this.errors} / ${L3.MAX_ERRORS}`);
               sfx(this, "wrong_zone", { volume: 0.7 });
               if (this.errors >= L3.MAX_ERRORS) {
-                this.gameState = "OVER";
-                this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
-                this.add
-                  .text(W / 2, H / 2, "ОПИТАЙ ПАК! 🎊\nПрезареди играта", {
-                    fontSize: "40px",
-                    color: "#ef9a9a",
-                    align: "center",
-                  })
-                  .setOrigin(0.5)
-                  .setDepth(101);
+                showGameOverScreen(this, "ОПИТАЙ ПАК!", "#ef9a9a");
               } else {
                 this.showMsg("❌ Не е правилното място!", 0xf44336, bx, by);
               }
@@ -2412,12 +2459,13 @@
 
           // ── ANIMATED ARROWS pointing to the active target zone ──────────────
           // No filled rectangles — just clean arrows so the background stays visible.
-          const activeTask = this.tasks.find((tt) => !tt.done);
+          const activeTask = this.carrying ? this.carrying : this.tasks.find((tt) => !tt.done);
+
           if (activeTask) {
             const t = activeTask.target;
+            // Свети зелено, ако играчът в момента носи точния предмет за целта
             const isCorrect = this.carrying && this.carrying.id === activeTask.id;
             const col = isCorrect ? 0x00e676 : activeTask.arrowColor || 0xffd54f;
-            // Bounce offset — arrows bob up/down
             const bounce = Math.sin(this.tempTimer * 0.005) * 6;
 
             // Draw 4 inward-pointing arrows around the target centre
@@ -2556,7 +2604,7 @@
           this.cameras.main.fadeIn(700);
 
           // ── Victory BGM ──
-          this.bgm = this.sound.add("victory_theme", { loop: true, volume: 0.6 });
+          this.bgm = this.sound.add("victory_theme", { loop: false, volume: 0.6 });
           this.bgm.play();
         }
 
