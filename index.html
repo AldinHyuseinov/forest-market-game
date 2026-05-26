@@ -83,13 +83,21 @@
         diamond: 0xce93d8,
       };
 
-      const ANIMAL_NEEDS = [
-        { animal: "bear", x: 200, y: 600, shape: "circle", label: "Мечо" },
-        { animal: "rabbit", x: 430, y: 610, shape: "square", label: "Зайо" },
-        { animal: "fox", x: 680, y: 600, shape: "triangle", label: "Лисица" },
-        { animal: "squirrel", x: 920, y: 610, shape: "rectangle", label: "Катерица" },
-        { animal: "wolf", x: 1110, y: 600, shape: "diamond", label: "Вълче" },
+      // Base animal definitions – shapes are randomised at scene start
+      const ANIMAL_DEFS = [
+        { animal: "bear", x: 200, y: 600, label: "Мечо" },
+        { animal: "rabbit", x: 430, y: 610, label: "Зайо" },
+        { animal: "fox", x: 680, y: 600, label: "Лисица" },
+        { animal: "squirrel", x: 920, y: 610, label: "Катерица" },
+        { animal: "wolf", x: 1110, y: 600, label: "Вълче" },
       ];
+      const ALL_SHAPES = ["circle", "square", "triangle", "rectangle", "diamond"];
+
+      // Called once per ForestScene.create() to build a shuffled assignment
+      function buildAnimalNeeds() {
+        const shuffled = Phaser.Utils.Array.Shuffle([...ALL_SHAPES]);
+        return ANIMAL_DEFS.map((a, i) => ({ ...a, shape: shuffled[i] }));
+      }
 
       const SHAPE_POOL = [
         { type: "circle", x: 80, y: 630 },
@@ -142,51 +150,80 @@
         MAX_ERRORS: 3,
       };
 
+      // ──────────────────────────────────────────────────────────────────────
+      // НИВО 3 — ПРОСТРАНСТВЕНИ ЗАДАЧИ
+      //
+      // ГЛАСОВ ТИП ЗА ИНСТРУКЦИИТЕ:
+      //   Препоръчителен глас: весел, мек детски глас на момиче (7-9 год.),
+      //   топъл и насърчителен тон — като приятел, не като учител.
+      //   Темпо: бавно и ясно с лека пауза след пространственото понятие.
+      //   Пример файлове (Web Speech API / озвучен аудио клип):
+      //     voice_hint_0.mp3 → „Сложи балонА НАД вратата на магазина!"
+      //     voice_hint_1.mp3 → „Сложи гирлянда МЕЖДУ двата камъка!"
+      //     voice_hint_2.mp3 → „Сложи фенерА ДО мечката!"
+      //     voice_hint_3.mp3 → „Сложи цветето ПОД вратата на магазина!"
+      //     voice_hint_4.mp3 → „Сложи звездата ВДЯСНО от вратата!"
+      //   Зареждане: scene.load.audio('voice_hint_0', 'assets/voice/hint_0.mp3')
+      //   Изпълнение: scene.sound.play('voice_hint_' + task.id, { volume: 0.9 })
+      // ──────────────────────────────────────────────────────────────────────
       const SPATIAL_TASKS = [
         {
           id: 0,
           decoration: "balloon",
           decorName: "Балон",
+          // Pickup — горе вляво, лесно достъпен
           pickupX: 120,
-          pickupY: 140,
-          target: { cx: 300, cy: 180, hw: 80, hh: 80 },
-          hint: "🎈 Сложи балона НАД мечката!",
+          pickupY: 180,
+          // НАД вратата: вратата на кабина е ≈ cx:640 cy:420–490 в outside_day.
+          // Поставяме балона точно над нея.
+          target: { cx: 640, cy: 390, hw: 70, hh: 45 },
+          hint: "🎈 Сложи балона НАД вратата на магазина!",
+          // Arrow points FROM pickup TO target
+          arrowColor: 0xff5252,
         },
         {
           id: 1,
           decoration: "garland",
           decorName: "Гирлянд",
-          pickupX: 250,
-          pickupY: 140,
-          target: { cx: 640, cy: 120, hw: 140, hh: 60 },
-          hint: "🌲 Сложи гирлянда МЕЖДУ дърветата!",
+          pickupX: 1160,
+          pickupY: 180,
+          // МЕЖДУ двата камъка вдясно (≈ x:1050–1120, y:530–555)
+          target: { cx: 1080, cy: 540, hw: 65, hh: 40 },
+          hint: "🪨 Сложи гирлянда МЕЖДУ двата камъка!",
+          arrowColor: 0xffeb3b,
         },
         {
           id: 2,
           decoration: "lantern",
           decorName: "Фенер",
-          pickupX: 380,
-          pickupY: 140,
-          target: { cx: 980, cy: 220, hw: 80, hh: 80 },
-          hint: "🦊 Сложи фенера ДО лисицата!",
+          pickupX: 80,
+          pickupY: 540,
+          // ДО мечката (вляво от мечката ≈ x:180, y:490–530)
+          target: { cx: 130, cy: 520, hw: 55, hh: 45 },
+          hint: "🐻 Сложи фенера ДО мечката!",
+          arrowColor: 0xffd54f,
         },
         {
           id: 3,
           decoration: "flower",
           decorName: "Цвете",
-          pickupX: 510,
-          pickupY: 140,
-          target: { cx: 500, cy: 520, hw: 100, hh: 80 },
-          hint: "🐰 Сложи цветето ПОД зайчето!",
+          pickupX: 1180,
+          pickupY: 540,
+          // ПОД вратата — на земята пред вратата (≈ cx:640, cy:545–570)
+          target: { cx: 640, cy: 560, hw: 65, hh: 38 },
+          hint: "🌸 Сложи цветето ПОД вратата (на земята)!",
+          arrowColor: 0xf06292,
         },
         {
           id: 4,
           decoration: "star",
           decorName: "Звезда",
           pickupX: 640,
-          pickupY: 140,
-          target: { cx: 640, cy: 260, hw: 100, hh: 80 },
-          hint: "⭐ Сложи звездата В СРЕДАТА!",
+          pickupY: 200,
+          // ВДЯСНО от вратата: на стената вдясно от вратата ≈ cx:730, cy:460
+          target: { cx: 730, cy: 455, hw: 60, hh: 50 },
+          hint: "⭐ Сложи звездата ВДЯСНО от вратата!",
+          arrowColor: 0xffee58,
         },
       ];
 
@@ -397,7 +434,7 @@
           this.gameState = "PLAYING";
           this.errors = 0;
           this.delivered = 0;
-          this.totalNeeded = ANIMAL_NEEDS.length;
+          this.totalNeeded = ANIMAL_DEFS.length;
           this.carrying = null;
           this.tempTimer = 0;
 
@@ -405,7 +442,8 @@
 
           this.playerSprite = this.add.sprite(640, 280, "sprite_owl").setScale(3.5).setDepth(15);
           this.shapes = SHAPE_POOL.map((s, i) => ({ ...s, id: i, picked: false }));
-          this.animals = ANIMAL_NEEDS.map((a) => ({ ...a, done: false }));
+          // Randomise shape-to-animal assignments each playthrough
+          this.animals = buildAnimalNeeds().map((a) => ({ ...a, done: false }));
 
           this.animals.forEach((a) => {
             a.sprite = this.add
@@ -460,27 +498,22 @@
         _buildAnimalBubbles() {
           this.bubbleGfxArr = [];
           this.animals.forEach((a) => {
-            const bx = a.x - 55,
-              by = a.y - 110;
+            // Compact square bubble — shape only, no text
+            const bw1 = 64,
+              bh1 = 64;
+            const bx = a.x - bw1 / 2,
+              by = a.y - 105;
             const bg = this.add.graphics().setDepth(7);
-            bg.fillStyle(0xffffff, 0.88);
-            bg.fillRoundedRect(bx, by, 110, 62, 10);
+            bg.fillStyle(0xffffff, 0.92);
+            bg.fillRoundedRect(bx, by, bw1, bh1, 10);
             bg.lineStyle(3, 0x333333, 1);
-            bg.strokeRoundedRect(bx, by, 110, 62, 10);
-            bg.fillStyle(0xffffff, 0.88);
-            bg.fillTriangle(a.x - 5, by + 62, a.x + 5, by + 62, a.x, by + 78);
+            bg.strokeRoundedRect(bx, by, bw1, bh1, 10);
+            bg.fillStyle(0xffffff, 0.92);
+            bg.fillTriangle(a.x - 5, by + bh1, a.x + 5, by + bh1, a.x, by + bh1 + 14);
             const sg = this.add.graphics().setDepth(8);
-            Draw.shape(sg, a.shape, bx + 30, by + 31, 14, SHAPE_COLORS[a.shape]);
-            const lt = this.add
-              .text(bx + 65, by + 31, SHAPE_NAMES[a.shape], {
-                fontFamily: "Arial",
-                fontSize: "13px",
-                color: "#111",
-                fontStyle: "bold",
-              })
-              .setOrigin(0.5, 0.5)
-              .setDepth(9);
-            this.bubbleGfxArr.push({ bg, sg, lt, animal: a });
+            Draw.shape(sg, a.shape, a.x, by + bh1 / 2, 16, SHAPE_COLORS[a.shape]);
+            // No text label in L1 bubble — shape graphic only (child-friendly)
+            this.bubbleGfxArr.push({ bg, sg, lt: null, animal: a });
           });
         }
 
@@ -527,7 +560,7 @@
                 if (e) {
                   e.bg.destroy();
                   e.sg.destroy();
-                  e.lt.destroy();
+                  if (e.lt) e.lt.destroy();
                 }
                 this.showMsg(`✅ Браво! Правилен ${SHAPE_NAMES[this.carrying]}!`, 0x4caf50, ox, oy);
                 this.carrying = null;
@@ -720,9 +753,14 @@
 
               // Балончето се създава веднъж при пристигане на гишето
               // Иконата използва оригиналния зареден спрайт (carrot, fish, honey, acorn)
+              // Compact bubble: fixed per-slot Y so multiple bubbles never overlap.
+              // Slots 0,1,2 → by = 295, 295, 295 (same row — stagger X only).
+              // Icon and quantity sit compactly inside the 100×64 bubble.
+              const BY = 295;
+              this.bubbleBy = BY; // remember for drawBubble()
               this.bubbleText = this.scene.add
-                .text(this.x + 38, this.y - 148, this.quantity.toString(), {
-                  fontSize: "38px",
+                .text(this.x + 26, BY + 16, this.quantity.toString(), {
+                  fontSize: "26px",
                   color: "#111",
                   fontStyle: "bold",
                 })
@@ -730,8 +768,8 @@
                 .setDepth(16);
 
               this.bubbleIcon = this.scene.add
-                .image(this.x - 28, this.y - 148, this.targetItem)
-                .setScale(2.8)
+                .image(this.x - 22, BY + 24, this.targetItem)
+                .setScale(1.8)
                 .setDepth(16);
             } else {
               const step = 150 * (delta / 1000);
@@ -791,38 +829,39 @@
 
         drawBubble(scene) {
           if (this.state !== "waiting") return;
-          const bx = this.x - 90,
-            by = this.y - 210;
-          const bw = 180,
-            bh = 120;
 
-          // Контур на балончето
-          scene.bubbleGfx.fillStyle(0xffffff, 0.93);
-          scene.bubbleGfx.fillRoundedRect(bx, by, bw, bh, 10);
-          scene.bubbleGfx.lineStyle(3, 0x333333, 1);
-          scene.bubbleGfx.strokeRoundedRect(bx, by, bw, bh, 10);
-          scene.bubbleGfx.fillStyle(0xffffff, 0.93);
+          // Compact 100×64 bubble anchored to fixed row so slots never overlap
+          const bw = 100,
+            bh = 64;
+          const by = this.bubbleBy ?? 295;
+          const bx = this.x - bw / 2;
+
+          scene.bubbleGfx.fillStyle(0xffffff, 0.95);
+          scene.bubbleGfx.fillRoundedRect(bx, by, bw, bh, 8);
+          scene.bubbleGfx.lineStyle(2, 0x444444, 1);
+          scene.bubbleGfx.strokeRoundedRect(bx, by, bw, bh, 8);
+          // Tail pointing down toward the animal
+          scene.bubbleGfx.fillStyle(0xffffff, 0.95);
           scene.bubbleGfx.fillTriangle(
-            this.x - 8,
+            this.x - 6,
             by + bh,
-            this.x + 8,
+            this.x + 6,
             by + bh,
             this.x,
-            by + bh + 16,
+            by + bh + 12,
           );
 
-          // Лента за търпението
-          const barW = bw - 16,
-            barH = 10;
-          const barX = bx + 8,
-            barY = by + bh - 18;
+          // Patience bar (thin strip at bottom of bubble)
+          const barW = bw - 10,
+            barH = 6;
+          const barX = bx + 5,
+            barY = by + bh - 10;
           scene.bubbleGfx.fillStyle(0xcccccc, 1);
-          scene.bubbleGfx.fillRoundedRect(barX, barY, barW, barH, 4);
-
+          scene.bubbleGfx.fillRoundedRect(barX, barY, barW, barH, 3);
           const ratio = Math.max(0, 1 - this.elapsed / this.patience);
           const barColor = ratio > 0.5 ? 0x4caf50 : ratio > 0.25 ? 0xffc107 : 0xf44336;
           scene.bubbleGfx.fillStyle(barColor, 1);
-          scene.bubbleGfx.fillRoundedRect(barX, barY, barW * ratio, barH, 4);
+          scene.bubbleGfx.fillRoundedRect(barX, barY, barW * ratio, barH, 3);
         }
       }
 
@@ -1427,6 +1466,20 @@
             return;
           }
           this.hintText.setText(`👉 ${next.hint}`);
+
+          // ── VOICE INSTRUCTION ────────────────────────────────────────────────
+          // Recommended voice: warm, slow, child-friendly Bulgarian girl voice (7-9 y.o.)
+          // Loaded via: preloadCommonAssets → scene.load.audio('voice_hint_0', 'assets/voice/hint_0.mp3')
+          // Each audio file reads the hint text aloud with emphasis on the spatial keyword.
+          // Example: hint_0.mp3 = "Сложи балонА ... НАД ... вратата на магазина!"
+          //          hint_1.mp3 = "Сложи гирлянда ... МЕЖДУ ... двата камъка!"
+          //          hint_2.mp3 = "Сложи фенерА ... ДО ... мечката!"
+          //          hint_3.mp3 = "Сложи цветето ... ПОД ... вратата!"
+          //          hint_4.mp3 = "Сложи звездата ... ВДЯСНО ... от вратата!"
+          // Stop previous voice before playing next to avoid overlapping:
+          // if (this.sound.get('voice_hint_' + (next.id - 1))) this.sound.stopByKey('voice_hint_' + (next.id - 1));
+          // this.sound.play('voice_hint_' + next.id, { volume: 0.9 });
+          // ─────────────────────────────────────────────────────────────────────
         }
 
         _drawDecoration(g, type, x, y, s = 1) {
@@ -1584,52 +1637,67 @@
             }
           });
 
-          // СВЕТЕЩИ ЗОНИ: Показва всички целеви зони постоянно
-          this.tasks.forEach((task) => {
-            if (task.done) return;
-            const t = task.target;
-            const isActive =
-              !this.tasks.find((tt) => !tt.done) ||
-              this.tasks.find((tt) => !tt.done).id === task.id;
-            const isCarryingCorrect = isActive && this.carrying && this.carrying.id === task.id;
-
-            const strokeColor = isCarryingCorrect ? 0x00ff00 : isActive ? 0xffe082 : 0xaaaaaa;
-            const fillColor = isCarryingCorrect ? 0x00ff00 : isActive ? 0xffe082 : 0xcccccc;
-            const alphaPulse = isCarryingCorrect
-              ? 0.28 + Math.sin(this.tempTimer * 0.005) * 0.12
-              : isActive
-                ? 0.13 + Math.sin(this.tempTimer * 0.004) * 0.05
-                : 0.05;
-            const strokeAlpha = isCarryingCorrect ? 0.9 : isActive ? 0.7 : 0.25;
-
-            this.mainGfx.lineStyle(isActive ? 4 : 2, strokeColor, strokeAlpha);
-            this.mainGfx.strokeRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
-            this.mainGfx.fillStyle(fillColor, alphaPulse);
-            this.mainGfx.fillRect(t.cx - t.hw, t.cy - t.hh, t.hw * 2, t.hh * 2);
-          });
-
-          // Оновява текста за активната зона
-          const activeTask = this.tasks.find((t) => !t.done);
+          // ── ANIMATED ARROWS pointing to the active target zone ──────────────
+          // No filled rectangles — just clean arrows so the background stays visible.
+          const activeTask = this.tasks.find((tt) => !tt.done);
           if (activeTask) {
             const t = activeTask.target;
-            const isCarryingCorrect = this.carrying && this.carrying.id === activeTask.id;
+            const isCorrect = this.carrying && this.carrying.id === activeTask.id;
+            const col = isCorrect ? 0x00e676 : activeTask.arrowColor || 0xffd54f;
+            // Bounce offset — arrows bob up/down
+            const bounce = Math.sin(this.tempTimer * 0.005) * 6;
+
+            // Draw 4 inward-pointing arrows around the target centre
+            const drawArrow = (ax, ay, angle) => {
+              const len = 22,
+                head = 10;
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const tx = ax + cos * len,
+                ty = ay + sin * len;
+              this.mainGfx.lineStyle(4, col, 0.92);
+              this.mainGfx.beginPath();
+              this.mainGfx.moveTo(ax, ay);
+              this.mainGfx.lineTo(tx, ty);
+              this.mainGfx.strokePath();
+              // Arrow head
+              this.mainGfx.fillStyle(col, 0.92);
+              const lx = tx - cos * head + sin * (head * 0.5);
+              const ly = ty - sin * head - cos * (head * 0.5);
+              const rx = tx - cos * head - sin * (head * 0.5);
+              const ry = ty - sin * head + cos * (head * 0.5);
+              this.mainGfx.fillTriangle(tx, ty, lx, ly, rx, ry);
+            };
+
+            const gap = 36; // distance from centre to arrow base
+            // Top arrow (pointing down ↓)
+            drawArrow(t.cx, t.cy - t.hh - gap + bounce, Math.PI / 2);
+            // Bottom arrow (pointing up ↑)
+            drawArrow(t.cx, t.cy + t.hh + gap - bounce, -Math.PI / 2);
+            // Left arrow (pointing right →)
+            drawArrow(t.cx - t.hw - gap + bounce, t.cy, 0);
+            // Right arrow (pointing left ←)
+            drawArrow(t.cx + t.hw + gap - bounce, t.cy, Math.PI);
+
+            // Small "ТУК" label centred on target — no background box
             if (!this.zoneHintText) {
               this.zoneHintText = this.add
-                .text(t.cx, t.cy, "📍 ТУК", {
+                .text(t.cx, t.cy, "ТУК", {
                   fontFamily: "Arial",
-                  fontSize: "16px",
-                  color: "#ffffff",
+                  fontSize: "18px",
                   fontStyle: "bold",
+                  color: "#ffffff",
                   stroke: "#000000",
-                  strokeThickness: 3,
+                  strokeThickness: 4,
                 })
                 .setOrigin(0.5)
                 .setDepth(11);
-            } else {
-              this.zoneHintText.setPosition(t.cx, t.cy).setVisible(true);
-              this.zoneHintText.setColor(isCarryingCorrect ? "#00ff00" : "#ffe082");
-              this.zoneHintText.setText(isCarryingCorrect ? "✅ ПОСТАВИ ТУК!" : "📍 ТУК");
             }
+            this.zoneHintText
+              .setPosition(t.cx, t.cy)
+              .setVisible(true)
+              .setColor(isCorrect ? "#00e676" : "#ffffff")
+              .setText(isCorrect ? "✅ ТУК!" : "ТУК");
           } else {
             if (this.zoneHintText) this.zoneHintText.setVisible(false);
           }
