@@ -57,7 +57,9 @@
     <div id="game-container">
       <canvas id="gameCanvas"></canvas>
     </div>
-    <div id="footer">СТРЕЛКИ или WASD = Движение &nbsp;|&nbsp; SPACE = Действие</div>
+    <div id="footer">
+      СТРЕЛКИ или WASD = Движение &nbsp;|&nbsp; SPACE = Действие &nbsp;|&nbsp; ESC = Пауза
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
     <script>
@@ -149,17 +151,16 @@
       const ANIMALS = ["rabbit", "bear", "fox", "squirrel"];
       const ITEMS = ["carrot", "honey", "fish", "acorn"];
       const ANIMAL_PREFS = { rabbit: "carrot", bear: "honey", fox: "fish", squirrel: "acorn" };
-      const ITEM_NAMES = { carrot: "моркови", honey: "меда", fish: "риби", acorn: "желъди" };
+      const ITEM_NAMES = { carrot: "моркови", honey: "меда", fish: "риби", acorn: "жълъди" };
 
-      // Преместени рафтове (SHELVES) малко по-вдясно за по-добра видимост
       const ZONES = {
         COUNTER: { x: 780, y: 550, w: 350, h: 80 },
         TRASH: { x: 550, y: 250, w: 80, h: 80 },
         SHELVES: [
-          { x: 215, y: 220, item: "carrot", name: "МОРКОВИ" },
+          { x: 190, y: 220, item: "carrot", name: "МОРКОВИ" },
           { x: 375, y: 220, item: "honey", name: "МЕД" },
-          { x: 215, y: 420, item: "fish", name: "РИБА" },
-          { x: 375, y: 420, item: "acorn", name: "ЖЕЛЪДИ" },
+          { x: 190, y: 420, item: "fish", name: "РИБА" },
+          { x: 375, y: 420, item: "acorn", name: "ЖЪЛЪДИ" },
         ],
         DOOR: { x: 640, y: 150 },
       };
@@ -206,7 +207,7 @@
         {
           id: 1,
           decoration: "garland",
-          decorName: "Гирлянд",
+          decorName: "Гирляндa",
           pickupX: 1160,
           pickupY: 180,
           // МЕЖДУ двата камъка вдясно (≈ x:1050–1120, y:530–555)
@@ -300,11 +301,11 @@
         scene.load.audio("victory_theme", "assets/audio/victory_theme.mp3");
 
         // НИВО 3 (Пространствени задачи - гласови указания):
-        scene.load.audio("voice_hint_0", "assets/audio/voice/hint_0.mp3");
-        scene.load.audio("voice_hint_1", "assets/audio/voice/hint_1.mp3");
-        scene.load.audio("voice_hint_2", "assets/audio/voice/hint_2.mp3");
-        scene.load.audio("voice_hint_3", "assets/audio/voice/hint_3.mp3");
-        scene.load.audio("voice_hint_4", "assets/audio/voice/hint_4.mp3");
+        // scene.load.audio("voice_hint_0", "assets/audio/voice/hint_0.mp3");
+        // scene.load.audio("voice_hint_1", "assets/audio/voice/hint_1.mp3");
+        // scene.load.audio("voice_hint_2", "assets/audio/voice/hint_2.mp3");
+        // scene.load.audio("voice_hint_3", "assets/audio/voice/hint_3.mp3");
+        // scene.load.audio("voice_hint_4", "assets/audio/voice/hint_4.mp3");
       }
 
       function updateCharacterDirection(sprite, dx, dy, isMoving, tempTimer) {
@@ -370,6 +371,682 @@
           }
         },
       };
+
+      // ============================================================
+      // GLOBAL VOLUME STATE  (shared across all scenes)
+      // ============================================================
+      const VOL = { master: 0.8, music: 0.6, sfx: 0.8 };
+
+      // ============================================================
+      // START SCENE
+      // ============================================================
+      class StartScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "StartScene" });
+          this._selectedLevel = 0; // 0 = play from beginning
+        }
+        preload() {
+          preloadCommonAssets(this);
+        }
+        create() {
+          document.getElementById("game-title").textContent = "🌲 ГОРСКИ МАГАЗИН 🐻";
+          document.getElementById("game-subtitle").textContent = "Трета група · Математика";
+
+          // ── Background ──────────────────────────────────────────
+          this.add.image(0, 0, "outside_night").setOrigin(0).setDisplaySize(W, H);
+          // Rich gradient overlay: deep forest floor at bottom, dark sky at top
+          const grad = this.add.graphics().setDepth(0);
+          grad.fillGradientStyle(0x000000, 0x000000, 0x001a08, 0x001a08, 0.72, 0.72, 0.38, 0.38);
+          grad.fillRect(0, 0, W, H);
+
+          // Decorative firefly particles
+          this._flies = Array.from({ length: 28 }, () => ({
+            x: Math.random() * W,
+            y: 60 + Math.random() * (H - 160),
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.3 + Math.random() * 0.5,
+            radius: 80 + Math.random() * 120,
+          }));
+          this._flyGfx = this.add.graphics().setDepth(1);
+          this._t = 0;
+
+          // ── Animals on the ground (behind everything) ──────────
+          const groundY = H - 72;
+          const animalDefs = [
+            { key: "sprite_bear", x: W / 2 - 500 },
+            { key: "sprite_rabbit", x: W / 2 - 360 },
+            { key: "sprite_owl", x: W / 2 - 220 },
+            { key: "sprite_fox", x: W / 2 + 220 },
+            { key: "sprite_squirrel", x: W / 2 + 360 },
+            { key: "sprite_wolf", x: W / 2 + 500 },
+          ];
+          this._animalSprites = animalDefs.map(({ key, x }) =>
+            this.add.sprite(x, groundY, key).setScale(3.5).setFrame(4).setDepth(2),
+          );
+
+          // ── Logo area ───────────────────────────────────────────
+          // Glowing halo behind the title
+          const halo = this.add.graphics().setDepth(3);
+          halo.fillStyle(0x1b5e20, 0.18);
+          halo.fillEllipse(W / 2, 148, 820, 130);
+
+          this.add
+            .text(W / 2, 88, "🌲 ГОРСКИ МАГАЗИН 🐻", {
+              fontFamily: "Arial",
+              fontSize: "72px",
+              color: "#c8e6c9",
+              fontStyle: "bold",
+              stroke: "#071a04",
+              strokeThickness: 10,
+            })
+            .setOrigin(0.5, 0.5)
+            .setDepth(4);
+
+          this.add
+            .text(W / 2, 160, "Помогни на животните да построят своя магазин!", {
+              fontFamily: "Arial",
+              fontSize: "22px",
+              color: "#81c784",
+              stroke: "#000",
+              strokeThickness: 3,
+            })
+            .setOrigin(0.5, 0.5)
+            .setDepth(4);
+
+          // ── Level selector cards ────────────────────────────────
+          const levels = [
+            {
+              scene: "ForestScene",
+              icon: "🦉",
+              title: "НИВО 1",
+              sub: "Геометрични фигури",
+              desc: "Занеси правилните\nфигури на животните",
+              col: 0x1b5e20,
+              border: 0x4caf50,
+              textCol: "#c8e6c9",
+            },
+            {
+              scene: "ShopScene",
+              icon: "🛒",
+              title: "НИВО 2",
+              sub: "Броене до 10",
+              desc: "Обслужвай клиентите\nв горския магазин",
+              col: 0x1a3720,
+              border: 0x81c784,
+              textCol: "#b2dfdb",
+            },
+            {
+              scene: "PartyScene",
+              icon: "🎊",
+              title: "НИВО 3",
+              sub: "Пространствени отношения",
+              desc: "Украсявай за тържеството!",
+              col: 0x2a1a3a,
+              border: 0xce93d8,
+              textCol: "#f3e5f5",
+            },
+          ];
+
+          const cardW = 310,
+            cardH = 240;
+          const cardGap = 32;
+          const totalW = levels.length * cardW + (levels.length - 1) * cardGap;
+          const startX = (W - totalW) / 2;
+          const cardY = 270;
+
+          this._cardGraphics = this.add.graphics().setDepth(5);
+          this._selectedCard = -1; // -1 means "play from start"
+
+          levels.forEach((lvl, i) => {
+            const cx = startX + i * (cardW + cardGap);
+
+            // Draw card background
+            this._drawCard(this._cardGraphics, cx, cardY, cardW, cardH, lvl, false);
+
+            // Icon
+            this.add
+              .text(cx + cardW / 2, cardY + 46, lvl.icon, { fontSize: "44px" })
+              .setOrigin(0.5)
+              .setDepth(6);
+
+            // Title
+            this.add
+              .text(cx + cardW / 2, cardY + 96, lvl.title, {
+                fontFamily: "Arial",
+                fontSize: "26px",
+                color: lvl.textCol,
+                fontStyle: "bold",
+                stroke: "#000",
+                strokeThickness: 4,
+              })
+              .setOrigin(0.5)
+              .setDepth(6);
+
+            // Sub-heading
+            this.add
+              .text(cx + cardW / 2, cardY + 126, lvl.sub, {
+                fontFamily: "Arial",
+                fontSize: "13px",
+                color: "#aed581",
+                stroke: "#000",
+                strokeThickness: 2,
+              })
+              .setOrigin(0.5)
+              .setDepth(6);
+
+            // Description
+            this.add
+              .text(cx + cardW / 2, cardY + 168, lvl.desc, {
+                fontFamily: "Arial",
+                fontSize: "15px",
+                color: "#e0e0e0",
+                align: "center",
+                stroke: "#000",
+                strokeThickness: 2,
+                wordWrap: { width: cardW - 24 },
+              })
+              .setOrigin(0.5)
+              .setDepth(6);
+
+            // Hover zone
+            const zone = this.add
+              .zone(cx + cardW / 2, cardY + cardH / 2, cardW, cardH)
+              .setInteractive()
+              .setDepth(7);
+
+            zone.on("pointerover", () => {
+              this._selectedCard = i;
+              this._redrawCards(levels, startX, cardY, cardW, cardH, cardGap);
+            });
+            zone.on("pointerout", () => {
+              this._selectedCard = -1;
+              this._redrawCards(levels, startX, cardY, cardW, cardH, cardGap);
+            });
+            zone.on("pointerdown", () => {
+              this._launchLevel(lvl.scene);
+            });
+          });
+
+          // Store for redraw
+          this._levels = levels;
+          this._startX = startX;
+          this._cardY = cardY;
+          this._cardW = cardW;
+          this._cardH = cardH;
+          this._cardGap = cardGap;
+
+          // ── PLAY button (start from level 1) ────────────────────
+          const btnX = W / 2,
+            btnY = cardY + cardH + 90;
+          const btnW = 320,
+            btnH = 62;
+          this._btnGfx = this.add.graphics().setDepth(8);
+          this._drawPlayBtn(false);
+
+          this._btnTxt = this.add
+            .text(btnX, btnY, "▶   ИГРАЙ ОТ НАЧАЛО", {
+              fontFamily: "Arial",
+              fontSize: "26px",
+              color: "#c8e6c9",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 4,
+            })
+            .setOrigin(0.5)
+            .setDepth(9);
+
+          const btnZone = this.add.zone(btnX, btnY, btnW, btnH).setInteractive().setDepth(10);
+          btnZone.on("pointerover", () => {
+            this._drawPlayBtn(true);
+            this._btnTxt.setColor("#ffffff");
+          });
+          btnZone.on("pointerout", () => {
+            this._drawPlayBtn(false);
+            this._btnTxt.setColor("#c8e6c9");
+          });
+          btnZone.on("pointerdown", () => this._launchLevel("ForestScene"));
+          this._btnX = btnX;
+          this._btnY = btnY;
+          this._btnW = btnW;
+          this._btnH = btnH;
+
+          // ── Keyboard shortcuts ──────────────────────────────────
+          this.input.keyboard.once("keydown-SPACE", () => this._launchLevel("ForestScene"));
+          this.input.keyboard.once("keydown-ENTER", () => this._launchLevel("ForestScene"));
+
+          this.cameras.main.fadeIn(700);
+        }
+
+        _drawCard(gfx, cx, cy, cw, ch, lvl, selected) {
+          gfx.fillStyle(lvl.col, selected ? 1 : 0.82);
+          gfx.fillRoundedRect(cx, cy, cw, ch, 18);
+          gfx.lineStyle(selected ? 4 : 2, lvl.border, selected ? 1 : 0.55);
+          gfx.strokeRoundedRect(cx, cy, cw, ch, 18);
+          if (selected) {
+            // Glow ring
+            gfx.lineStyle(10, lvl.border, 0.18);
+            gfx.strokeRoundedRect(cx - 4, cy - 4, cw + 8, ch + 8, 22);
+          }
+        }
+
+        _redrawCards(levels, startX, cardY, cardW, cardH, cardGap) {
+          this._cardGraphics.clear();
+          levels.forEach((lvl, i) => {
+            const cx = startX + i * (cardW + cardGap);
+            this._drawCard(
+              this._cardGraphics,
+              cx,
+              cardY,
+              cardW,
+              cardH,
+              lvl,
+              this._selectedCard === i,
+            );
+          });
+        }
+
+        _drawPlayBtn(hover) {
+          this._btnGfx.clear();
+          this._btnGfx.fillStyle(hover ? 0x2e7d32 : 0x1b5e20, 1);
+          this._btnGfx.fillRoundedRect(
+            this._btnX - this._btnW / 2,
+            this._btnY - this._btnH / 2,
+            this._btnW,
+            this._btnH,
+            18,
+          );
+          this._btnGfx.lineStyle(3, hover ? 0xa5d6a7 : 0x4caf50, 1);
+          this._btnGfx.strokeRoundedRect(
+            this._btnX - this._btnW / 2,
+            this._btnY - this._btnH / 2,
+            this._btnW,
+            this._btnH,
+            18,
+          );
+          if (hover) {
+            this._btnGfx.lineStyle(8, 0x81c784, 0.2);
+            this._btnGfx.strokeRoundedRect(
+              this._btnX - this._btnW / 2 - 4,
+              this._btnY - this._btnH / 2 - 4,
+              this._btnW + 8,
+              this._btnH + 8,
+              22,
+            );
+          }
+        }
+
+        _buildVolumeControls() {
+          // Small panel bottom-right
+          const px = W - 240,
+            py = H - 128;
+          const pg = this.add.graphics().setDepth(8);
+          pg.fillStyle(0x071a04, 0.82);
+          pg.fillRoundedRect(px, py, 228, 116, 12);
+          pg.lineStyle(2, 0x2e7d32, 0.8);
+          pg.strokeRoundedRect(px, py, 228, 116, 12);
+
+          this.add
+            .text(px + 114, py + 16, "🔊 ЗВУК", {
+              fontFamily: "Arial",
+              fontSize: "14px",
+              color: "#81c784",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 2,
+            })
+            .setOrigin(0.5)
+            .setDepth(9);
+
+          const sliders = [
+            { label: "Музика", key: "music", y: py + 44 },
+            { label: "Ефекти", key: "sfx", y: py + 80 },
+          ];
+
+          sliders.forEach(({ label, key, y }) => {
+            this.add
+              .text(px + 10, y + 2, label, {
+                fontFamily: "Arial",
+                fontSize: "13px",
+                color: "#a5d6a7",
+                stroke: "#000",
+                strokeThickness: 2,
+              })
+              .setDepth(9);
+
+            const trackX = px + 82,
+              trackW = 128,
+              trackH = 10;
+            const trackG = this.add.graphics().setDepth(9);
+            const drawTrack = () => {
+              trackG.clear();
+              // Track background
+              trackG.fillStyle(0x1b5e20, 1);
+              trackG.fillRoundedRect(trackX, y, trackW, trackH, 5);
+              // Fill
+              trackG.fillStyle(0x4caf50, 1);
+              trackG.fillRoundedRect(trackX, y, trackW * VOL[key], trackH, 5);
+              // Thumb
+              const tx = trackX + trackW * VOL[key];
+              trackG.fillStyle(0xc8e6c9, 1);
+              trackG.fillCircle(tx, y + trackH / 2, 8);
+              trackG.lineStyle(2, 0x2e7d32, 1);
+              trackG.strokeCircle(tx, y + trackH / 2, 8);
+            };
+            drawTrack();
+
+            // Interactive drag zone for the whole track
+            const hitZone = this.add
+              .zone(trackX + trackW / 2, y + trackH / 2, trackW + 16, 24)
+              .setInteractive()
+              .setDepth(10);
+            const setVol = (px_) => {
+              const rel = Phaser.Math.Clamp((px_ - trackX) / trackW, 0, 1);
+              VOL[key] = rel;
+              drawTrack();
+            };
+            hitZone.on("pointerdown", (ptr) => setVol(ptr.x));
+            hitZone.on("pointermove", (ptr) => {
+              if (ptr.isDown) setVol(ptr.x);
+            });
+          });
+        }
+
+        _launchLevel(sceneKey) {
+          this.cameras.main.fade(500, 0, 0, 0, false, (_, p) => {
+            if (p >= 1) this.scene.start(sceneKey);
+          });
+        }
+
+        update(_, delta) {
+          this._t += delta / 1000;
+          this._flyGfx.clear();
+          this._flies.forEach((f) => {
+            f.phase += (f.speed * delta) / 1000;
+            const fx = f.x + Math.cos(f.phase) * f.radius * 0.18;
+            const fy = f.y + Math.sin(f.phase * 0.7) * 40;
+            const alpha = 0.35 + 0.45 * Math.abs(Math.sin(f.phase * 1.3));
+            this._flyGfx.fillStyle(0xccff66, alpha);
+            this._flyGfx.fillCircle(fx, fy, 2.5);
+            // Soft glow
+            this._flyGfx.fillStyle(0xccff66, alpha * 0.18);
+            this._flyGfx.fillCircle(fx, fy, 7);
+          });
+
+          // Bob the animals
+          this._animalSprites.forEach((s, i) => {
+            s.y = H - 72 + Math.sin(this._t * 1.1 + i * 0.9) * 3;
+          });
+        }
+      }
+
+      // ============================================================
+      // PAUSE SCENE  (runs as an overlay on top of any gameplay scene)
+      // ============================================================
+      class PauseScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "PauseScene" });
+        }
+
+        // init() is called by Phaser BEFORE create() and receives scene.launch() data
+        init(data) {
+          this._caller = data && data.caller;
+          this._callerKey = this._caller && this._caller.sys && this._caller.sys.settings.key;
+        }
+
+        create() {
+          this.scene.bringToTop(); // Гарантира, че паузата е най-отпред
+
+          // ── Blurred backdrop ─────────────────────────────────────
+          this.add
+            .rectangle(W / 2, H / 2, W, H, 0x000000, 0.68)
+            .setOrigin(0.5)
+            .setDepth(200);
+
+          // Subtle vignette ring
+          const vig = this.add.graphics().setDepth(200);
+          vig.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.55, 0.55, 0, 0);
+          vig.fillRect(0, 0, W, H);
+
+          // ── Panel ────────────────────────────────────────────────
+          const panelW = 580,
+            panelH = 440;
+          const px = (W - panelW) / 2,
+            py = (H - panelH) / 2 - 10;
+          const g = this.add.graphics().setDepth(201);
+          g.fillStyle(0x071a04, 0.97);
+          g.fillRoundedRect(px, py, panelW, panelH, 22);
+          g.lineStyle(3, 0x4caf50, 1);
+          g.strokeRoundedRect(px, py, panelW, panelH, 22);
+          // Inner accent line
+          g.lineStyle(1, 0x81c784, 0.25);
+          g.strokeRoundedRect(px + 6, py + 6, panelW - 12, panelH - 12, 18);
+
+          // ── Title ────────────────────────────────────────────────
+          this.add
+            .text(W / 2, py + 52, "⏸  ПАУЗА", {
+              fontFamily: "Arial",
+              fontSize: "52px",
+              color: "#c8e6c9",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 7,
+            })
+            .setOrigin(0.5)
+            .setDepth(202);
+
+          // Thin divider
+          const divG = this.add.graphics().setDepth(202);
+          divG.lineStyle(1, 0x2e7d32, 0.7);
+          divG.lineBetween(px + 30, py + 82, px + panelW - 30, py + 82);
+
+          // ── Volume controls ──────────────────────────────────────
+          this.add
+            .text(W / 2, py + 108, "🔊  КОНТРОЛ НА ЗВУКА", {
+              fontFamily: "Arial",
+              fontSize: "18px",
+              color: "#81c784",
+              fontStyle: "bold",
+              stroke: "#000",
+              strokeThickness: 3,
+            })
+            .setOrigin(0.5)
+            .setDepth(202);
+
+          const volSliders = [
+            { label: "Музика", key: "music", y: py + 146 },
+            { label: "Ефекти", key: "sfx", y: py + 196 },
+            { label: "Главен", key: "master", y: py + 246 },
+          ];
+
+          volSliders.forEach(({ label, key, y }) => {
+            this.add
+              .text(px + 40, y - 4, label + ":", {
+                fontFamily: "Arial",
+                fontSize: "16px",
+                color: "#a5d6a7",
+                stroke: "#000",
+                strokeThickness: 2,
+              })
+              .setDepth(203);
+
+            const trackX = px + 126,
+              trackW = panelW - 210,
+              trackH = 12;
+
+            const pctTxt = this.add
+              .text(trackX + trackW + 15, y + trackH / 2, Math.round(VOL[key] * 100) + "%", {
+                fontFamily: "Arial",
+                fontSize: "16px",
+                color: "#c8e6c9",
+                stroke: "#000",
+                strokeThickness: 2,
+              })
+              .setOrigin(0, 0.5)
+              .setDepth(205);
+
+            const trackG = this.add.graphics().setDepth(203);
+
+            const drawTrack = () => {
+              trackG.clear();
+              trackG.fillStyle(0x1a3d1a, 1);
+              trackG.fillRoundedRect(trackX, y, trackW, trackH, 6);
+              const fillCol = key === "master" ? 0xffb300 : key === "sfx" ? 0x29b6f6 : 0x4caf50;
+              trackG.fillStyle(fillCol, 1);
+              trackG.fillRoundedRect(trackX, y, Math.max(trackH, trackW * VOL[key]), trackH, 6);
+              trackG.fillStyle(0xffffff, 0.9);
+              trackG.fillCircle(trackX + trackW * VOL[key], y + trackH / 2, 9);
+              trackG.lineStyle(2, 0x333333, 0.6);
+              trackG.strokeCircle(trackX + trackW * VOL[key], y + trackH / 2, 9);
+              pctTxt.setText(Math.round(VOL[key] * 100) + "%");
+            };
+            drawTrack();
+
+            const hitZone = this.add
+              .zone(trackX + trackW / 2, y + trackH / 2, trackW + 20, 28)
+              .setInteractive()
+              .setDepth(204);
+            const setVol = (px_) => {
+              VOL[key] = Phaser.Math.Clamp((px_ - trackX) / trackW, 0, 1);
+              drawTrack();
+              if (this._caller && this._caller.bgm) {
+                if (key === "music" || key === "master")
+                  this._caller.bgm.setVolume(VOL.music * VOL.master);
+              }
+            };
+            hitZone.on("pointerdown", (ptr) => setVol(ptr.x));
+            hitZone.on("pointermove", (ptr) => {
+              if (ptr.isDown) setVol(ptr.x);
+            });
+          });
+
+          // ── Divider ──────────────────────────────────────────────
+          divG.lineStyle(1, 0x2e7d32, 0.7);
+          divG.lineBetween(px + 30, py + 286, px + panelW - 30, py + 286);
+
+          // ── Action buttons ───────────────────────────────────────
+          const btnDefs = [
+            {
+              label: "▶  ПРОДЪЛЖИ",
+              col: 0x1b5e20,
+              hov: 0x2e7d32,
+              border: 0x4caf50,
+              tc: "#c8e6c9",
+              action: "resume",
+            },
+            {
+              label: "↺  РЕСТАРТ НИВО",
+              col: 0x1a2a3a,
+              hov: 0x1e3d52,
+              border: 0x29b6f6,
+              tc: "#b3e5fc",
+              action: "restartLevel",
+            },
+            {
+              label: "⏮  КЪМ НАЧАЛО",
+              col: 0x3e1a1a,
+              hov: 0x6d2a2a,
+              border: 0xef9a9a,
+              tc: "#ffcdd2",
+              action: "restartGame",
+            },
+          ];
+
+          const bW = 174,
+            bH = 52,
+            bGap = 12;
+          const bTotalW = btnDefs.length * bW + (btnDefs.length - 1) * bGap;
+          const bStartX = W / 2 - bTotalW / 2;
+          const bY = py + 330;
+
+          btnDefs.forEach((bd, i) => {
+            const bx = bStartX + i * (bW + bGap);
+            const bcx = bx + bW / 2;
+            const bg = this.add.graphics().setDepth(203);
+            const draw = (h) => {
+              bg.clear();
+              bg.fillStyle(h ? bd.hov : bd.col, 1);
+              bg.fillRoundedRect(bx, bY, bW, bH, 14);
+              bg.lineStyle(2, bd.border, h ? 1 : 0.7);
+              bg.strokeRoundedRect(bx, bY, bW, bH, 14);
+            };
+            draw(false);
+            const txt = this.add
+              .text(bcx, bY + bH / 2, bd.label, {
+                fontFamily: "Arial",
+                fontSize: "15px",
+                color: bd.tc,
+                fontStyle: "bold",
+                stroke: "#000",
+                strokeThickness: 3,
+              })
+              .setOrigin(0.5)
+              .setDepth(204);
+
+            const zone = this.add
+              .zone(bcx, bY + bH / 2, bW, bH)
+              .setInteractive()
+              .setDepth(205);
+            zone.on("pointerover", () => {
+              draw(true);
+              txt.setScale(1.04);
+            });
+            zone.on("pointerout", () => {
+              draw(false);
+              txt.setScale(1);
+            });
+            zone.on("pointerdown", () => {
+              if (bd.action === "resume") this._resume();
+              else if (bd.action === "restartLevel") this._restartLevel();
+              else if (bd.action === "restartGame") this._restartGame();
+            });
+          });
+
+          // ── Keyboard hint ─────────────────────────────────────────
+          this.add
+            .text(W / 2, py + panelH - 22, "SPACE / ESC — продължи    R — рестарт ниво", {
+              fontFamily: "Arial",
+              fontSize: "14px",
+              color: "#4caf50",
+              stroke: "#000",
+              strokeThickness: 2,
+            })
+            .setOrigin(0.5)
+            .setDepth(202);
+
+          // ── Keyboard shortcuts ────────────────────────────────────
+          const resume = () => this._resume();
+          this.input.keyboard.on("keydown-SPACE", resume);
+          this.input.keyboard.on("keydown-ESC", resume);
+          this.input.keyboard.on("keydown-R", () => this._restartLevel());
+        }
+
+        // ==========================================================
+        // МЕТОДИ НА КЛАСА (Липсваха в предишното ви копиране)
+        // ==========================================================
+
+        _resume() {
+          if (this._caller && this._caller.bgm && !this._caller.bgm.isPlaying)
+            this._caller.bgm.resume();
+          if (this._caller) this._caller.gameState = "PLAYING";
+          this.scene.stop();
+        }
+
+        _restartLevel() {
+          this.scene.stop();
+          if (this._caller) {
+            if (this._caller.bgm) this._caller.bgm.stop();
+            this._caller.scene.start(this._callerKey || "ForestScene");
+          }
+        }
+
+        _restartGame() {
+          this.scene.stop();
+          if (this._caller) {
+            if (this._caller.bgm) this._caller.bgm.stop();
+            this._caller.scene.start("StartScene");
+          }
+        }
+      }
 
       // ============================================================
       // TRANSITION SCENE: LEVEL 1 -> LEVEL 2
@@ -517,6 +1194,12 @@
           this.wasd = this.input.keyboard.addKeys("W,A,S,D");
 
           this.input.keyboard.on("keydown-SPACE", () => this.tryAction());
+          this.input.keyboard.on("keydown-ESC", () => {
+            if (this.gameState !== "PLAYING") return;
+            this.gameState = "PAUSED";
+            if (this.bgm) this.bgm.pause();
+            this.scene.launch("PauseScene", { caller: this });
+          });
 
           this.add.rectangle(0, 0, W, 58, 0x0a1a07).setOrigin(0, 0).setDepth(24);
           this.scoreText = this.add
@@ -680,7 +1363,7 @@
             this.gameState = "OVER";
             this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
             this.add
-              .text(W / 2, H / 2, "😢 ОПИТАЙ ПАК! 🦉\nПрезареди играта", {
+              .text(W / 2, H / 2, "ОПИТАЙ ПАК! 🦉\nПрезареди играта", {
                 fontSize: "40px",
                 color: "#ef9a9a",
                 align: "center",
@@ -954,7 +1637,7 @@
           ) {
             if (this.carrying.length > 0) {
               this.carrying = [];
-              this.scene.showMsg("Ръцете са изчистени!", 0x4caf50, this.x, this.y);
+              this.scene.showMsg("Изчистен инвентар!", 0x4caf50, this.x, this.y);
             }
             return;
           }
@@ -962,7 +1645,7 @@
             if (Phaser.Math.Distance.Between(this.x, this.y, shelf.x, shelf.y) < 100) {
               if (this.carrying.length >= L2.MAX_CARRY) {
                 this.scene.showMsg(
-                  `Ръцете са пълни! (Макс ${L2.MAX_CARRY})`,
+                  `Капацитета е достигнат! (Макс ${L2.MAX_CARRY})`,
                   0xff9800,
                   this.x,
                   this.y,
@@ -986,7 +1669,7 @@
               this.scene.onPlayerPlace([...this.carrying]);
               this.carrying = [];
             } else {
-              this.scene.showMsg("Нямаш нищо в ръцете!", 0xff9800, this.x, this.y);
+              this.scene.showMsg("Не носиш нищо!", 0xff9800, this.x, this.y);
             }
           }
         }
@@ -1098,6 +1781,13 @@
           this.cameras.main.fadeIn(500);
           this.bgm = this.sound.add("shop_upbeat", { loop: true, volume: 0.4 });
           this.bgm.play();
+
+          this.input.keyboard.on("keydown-ESC", () => {
+            if (this.gameState !== "PLAYING") return;
+            this.gameState = "PAUSED";
+            if (this.bgm) this.bgm.pause();
+            this.scene.launch("PauseScene", { caller: this });
+          });
         }
 
         showMsg(text, color, x, y) {
@@ -1316,7 +2006,7 @@
             this.gameState = "OVER";
             this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
             this.add
-              .text(W / 2, H / 2, "😢 ЗАГУБА! ОПИТАЙ ПАК! 😢\nПрезареди играта", {
+              .text(W / 2, H / 2, "ЗАГУБА! ОПИТАЙ ПАК! \nПрезареди играта", {
                 fontSize: "40px",
                 color: "#ff5252",
                 align: "center",
@@ -1482,6 +2172,12 @@
           this.cursors = this.input.keyboard.createCursorKeys();
           this.wasd = this.input.keyboard.addKeys("W,A,S,D");
           this.input.keyboard.on("keydown-SPACE", () => this.tryAction());
+          this.input.keyboard.on("keydown-ESC", () => {
+            if (this.gameState !== "PLAYING") return;
+            this.gameState = "PAUSED";
+            if (this.bgm) this.bgm.pause();
+            this.scene.launch("PauseScene", { caller: this });
+          });
 
           this.add.rectangle(0, 0, W, 58, 0x1a0a2e).setOrigin(0, 0).setDepth(24);
           this.scoreText = this.add
@@ -1633,7 +2329,7 @@
                 this.gameState = "OVER";
                 this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setDepth(100);
                 this.add
-                  .text(W / 2, H / 2, "😢 ОПИТАЙ ПАК! 🎊\nПрезареди играта", {
+                  .text(W / 2, H / 2, "ОПИТАЙ ПАК! 🎊\nПрезареди играта", {
                     fontSize: "40px",
                     color: "#ef9a9a",
                     align: "center",
@@ -1854,7 +2550,7 @@
           this.input.keyboard.once("keydown-SPACE", () => {
             if (this.bgm) this.bgm.stop();
             this.cameras.main.fade(400, 0, 0, 0, false, (_, p) => {
-              if (p >= 1) this.scene.start("ForestScene");
+              if (p >= 1) this.scene.start("StartScene");
             });
           });
           this.cameras.main.fadeIn(700);
@@ -1947,12 +2643,14 @@
         canvas: document.getElementById("gameCanvas"),
         pixelArt: true,
         scene: [
+          StartScene,
           ForestScene,
           TransitionScene,
           ShopScene,
           Transition2Scene,
           PartyScene,
           CutsceneScene,
+          PauseScene,
         ],
       });
       unlockAudio(_game);
